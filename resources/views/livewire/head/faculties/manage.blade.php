@@ -60,13 +60,12 @@
     </div>
   @endif
 
-  {{-- Responsive columns: Users Dept | Employment | (Availability when PT) --}}
   <div @class([
     'grid grid-cols-1 gap-6',
     'lg:grid-cols-3' => $this->isPartTime,
     'lg:grid-cols-2' => ! $this->isPartTime,
   ])>
-    {{-- Users Department (code/position only) --}}
+    {{-- Users Department --}}
     <div class="rounded-xl border border-gray-200 bg-white p-5">
       <div class="mb-4">
         <h2 class="text-base font-semibold text-gray-900">Users Department Record</h2>
@@ -128,7 +127,6 @@
 
         <div>
           <label class="block text-sm text-gray-600 mb-1">Status</label>
-          {{-- LIVE binding so the Availability column appears instantly when Part-Time is chosen --}}
           <select wire:model.live="employment_status"
                   class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
             <option value="Full-Time">Full-Time</option>
@@ -189,7 +187,7 @@
             </thead>
             <tbody>
               @foreach ($days as $day)
-                <tr class="border-b">
+                <tr class="border-b align-top">
                   <td class="p-2 font-medium">{{ $day }}</td>
                   <td class="p-2">
                     <input type="checkbox"
@@ -209,6 +207,12 @@
                            @disabled(!($dayEnabled[$day] ?? false))
                            class="w-36 rounded border border-gray-300 px-2 py-1 focus:ring-2 focus:ring-emerald-500">
                     @error("dayEnd.$day") <div class="mt-1 text-xs text-red-600">{{ $message }}</div> @enderror
+
+                    @if ($day === 'FRI')
+                      <div class="text-xs text-amber-600 mt-1">
+                        Friday requires at least 3 hours (e.g., 13:00–16:00, 14:30–17:30, 16:00–19:00, or 17:30–20:30).
+                      </div>
+                    @endif
                   </td>
                 </tr>
               @endforeach

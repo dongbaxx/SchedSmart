@@ -161,10 +161,23 @@ class Manage extends Component
 
         // If at least one day is enabled, validate; else allow clearing all
         if (!empty($rules)) {
-            $this->validate($rules, [], [
-                "dayStart.$d" => 'start time',
-                "dayEnd.$d"   => 'end time',
-            ]);
+            $this->validate($rules);
+        }
+
+        // FRIDAY RULE: require >= 3 hours when FRI is enabled
+        foreach ($this->days as $d) {
+            if (!empty($this->dayEnabled[$d])) {
+                $start = $this->dayStart[$d] ?? null;
+                $end   = $this->dayEnd[$d] ?? null;
+
+                if ($d === 'FRI' && $start && $end) {
+                    $mins = $this->diffMinutes($start, $end);
+                    if ($mins < 180) {
+                        $this->addError("dayEnd.$d", 'On Friday, availability must be at least 3 hours (180 minutes).');
+                        return; // stop save; show error
+                    }
+                }
+            }
         }
 
         // For enabled days: ensure time slot, upsert availability (is_available=1)
@@ -220,6 +233,14 @@ class Manage extends Component
     {
         if (!$hhmm || !preg_match('/^\d{2}:\d{2}$/', $hhmm)) return null;
         return $hhmm . ':00';
+    }
+
+    // Friday >= 3 hours helper
+    private function diffMinutes(string $hhmmStart, string $hhmmEnd): int
+    {
+        [$sh,$sm] = array_map('intval', explode(':', $hhmmStart));
+        [$eh,$em] = array_map('intval', explode(':', $hhmmEnd));
+        return ($eh*60 + $em) - ($sh*60 + $sm);
     }
 
     /** Helper the scheduler can call to restrict Full-Timers to weekdays only */
