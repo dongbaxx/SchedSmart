@@ -61,7 +61,8 @@ new #[Layout('components.layouts.auth')] class extends Component {
     {
         return Str::transliterate(Str::lower($this->email).'|'.request()->ip());
     }
-}; ?>
+};
+?>
 
 <!-- ==================== LOGIN PAGE ==================== -->
 <div class="flex flex-col items-center justify-center min-h-screen bg-white dark:bg-white p-6">
@@ -70,8 +71,8 @@ new #[Layout('components.layouts.auth')] class extends Component {
     <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm flex flex-col items-center gap-6">
 
         <!-- ✅ SCHOOL LOGO -->
-        <img src="{{ asset('images/sfxc_logo.png') }}" 
-             alt="SFXC Logo" 
+        <img src="{{ asset('images/sfxc_logo.png') }}"
+             alt="SFXC Logo"
              class="h-20 w-auto bg-transparent">
 
         <!-- ✅ Title -->
@@ -111,14 +112,6 @@ new #[Layout('components.layouts.auth')] class extends Component {
                     :placeholder="__('Password')"
                     viewable
                 />
-
-                @if (Route::has('password.request'))
-                    <flux:link class="absolute end-0 top-0 text-sm" 
-                        :href="route('password.request')" 
-                        wire:navigate>
-                        {{ __('Forgot your password?') }}
-                    </flux:link>
-                @endif
             </div>
 
             <!-- Remember Me -->
