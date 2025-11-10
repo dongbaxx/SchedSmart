@@ -14,7 +14,7 @@ use App\Livewire\Faculty\Dashboard                as FacultyDashboard;
 use App\Livewire\Registrar\Curricula;
 use App\Livewire\Registrar\Room;
 use App\Livewire\Registrar\Offering\Index as ROindex;
-use App\Livewire\Registrar\Offering\history as ROhistory;
+use App\Livewire\Registrar\Offering\History as ROhistory;
 
 use App\Livewire\Registrar\Faculty;
 use App\Livewire\Registrar\Department;
