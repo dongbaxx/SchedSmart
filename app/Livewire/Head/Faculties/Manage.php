@@ -45,6 +45,21 @@ class Manage extends Component
     public array $dayStart = [];
     public array $dayEnd   = [];
 
+    /** ── GRID WINDOWS USED BY THE SCHEDULER (Editor::$slots) ─────────────── */
+    private array $gridStarts = ['07:30','09:00','10:30','13:00','14:30','16:00','17:30','19:00'];
+    private array $gridEnds   = ['09:00','10:30','12:00','14:30','16:00','17:30','19:00','20:30'];
+
+    /** valid 3h windows (two consecutive 1.5h blocks) — used for FRI rule */
+    private array $gridWindows3h = [
+        ['13:00','16:00'],
+        ['14:30','17:30'],
+        ['16:00','19:00'],
+        ['17:30','20:30'],
+    ];
+
+    /** PT hard end limit (mirrors Editor::$PT_END_LIMIT) */
+    private string $PT_END_LIMIT = '21:00:00';
+
     public function getIsPartTimeProperty(): bool
     {
         return $this->employment_status === 'Part-Time';
@@ -97,9 +112,7 @@ class Manage extends Component
         }
     }
 
-    /**
-     * Livewire v3 hook: when status changes, show/hide the column instantly.
-     */
+    /** Livewire v3 hook: when status changes, show/hide the column instantly. */
     public function updatedEmploymentStatus(): void
     {
         // no-op needed; but keep method so the UI re-renders live when status flips
@@ -142,7 +155,7 @@ class Manage extends Component
         session()->flash('success_employment', 'Employment details updated.');
     }
 
-    /*** Save: Availability (Part-Time only) ***/
+    /*** Save: Availability (Part-Time only) — SNAP TO GRID ***/
     public function saveAvailability()
     {
         if (!$this->isPartTime) {
@@ -164,32 +177,58 @@ class Manage extends Component
             $this->validate($rules);
         }
 
-        // FRIDAY RULE: require >= 3 hours when FRI is enabled
+        // Process each day
         foreach ($this->days as $d) {
             if (!empty($this->dayEnabled[$d])) {
-                $start = $this->dayStart[$d] ?? null;
-                $end   = $this->dayEnd[$d] ?? null;
 
-                if ($d === 'FRI' && $start && $end) {
-                    $mins = $this->diffMinutes($start, $end);
-                    if ($mins < 180) {
-                        $this->addError("dayEnd.$d", 'On Friday, availability must be at least 3 hours (180 minutes).');
-                        return; // stop save; show error
+                // raw inputs (HH:MM)
+                $rawStart = $this->dayStart[$d] ?? null;
+                $rawEnd   = $this->dayEnd[$d]   ?? null;
+                if (!$rawStart || !$rawEnd) continue;
+
+                // snap to the nearest grid slot boundaries
+                $snappedStart = $this->snapStart($rawStart);  // e.g., 17:22 -> 17:30
+                $snappedEnd   = $this->snapEnd($rawEnd);      // e.g., 20:35 -> 20:30
+
+                // ensure start < end after snap
+                if (!$this->isValidRange($snappedStart, $snappedEnd)) {
+                    $this->addError("dayEnd.$d", 'The time range does not align to schedulable slots.');
+                    return;
+                }
+
+                // PT end cap (safety; Editor grid already ends 20:30)
+                $startSec = $this->normalizeToSec($snappedStart);
+                $endSec   = $this->normalizeToSec($snappedEnd);
+                if ($endSec > $this->PT_END_LIMIT) { $endSec = $this->PT_END_LIMIT; }
+
+                // Friday ≥ 3 hours (prefer an exact 3h grid window that fits inside the raw input)
+                if ($d === 'FRI') {
+                    $rawS = $this->normalizeToSec($rawStart);
+                    $rawE = $this->normalizeToSec($rawEnd);
+
+                    $forced = false;
+                    foreach ($this->gridWindows3h as [$gs, $ge]) {
+                        $gsSec = $this->normalizeToSec($gs);
+                        $geSec = $this->normalizeToSec($ge);
+                        // if the user-typed window can cover a full 3h grid window, force to it
+                        if ($rawS <= $gsSec && $rawE >= $geSec) {
+                            $startSec = $gsSec;
+                            $endSec   = $geSec;
+                            $forced   = true;
+                            break;
+                        }
+                    }
+                    // if not forced, at least ensure 180 minutes after snapping
+                    if (!$forced) {
+                        if ($this->diffMinutesSec($startSec, $endSec) < 180) {
+                            $this->addError("dayEnd.$d", 'On Friday, availability must be at least 3 hours (e.g., 17:30–20:30).');
+                            return;
+                        }
                     }
                 }
-            }
-        }
 
-        // For enabled days: ensure time slot, upsert availability (is_available=1)
-        // For disabled days: remove any availability rows for that day
-        foreach ($this->days as $d) {
-            if (!empty($this->dayEnabled[$d])) {
-                $start = $this->normalizeToSec($this->dayStart[$d] ?? null); // 'HH:MM:00'
-                $end   = $this->normalizeToSec($this->dayEnd[$d]   ?? null);
-
-                if (!$start || !$end) continue;
-
-                $slotId = $this->ensureTimeSlot($start, $end);
+                // persist: ensure a time_slots row exists for the snapped window
+                $slotId = $this->ensureTimeSlot($startSec, $endSec);
 
                 FacultyAvailability::updateOrCreate(
                     [
@@ -208,6 +247,7 @@ class Manage extends Component
                     ->where('day', $d)
                     ->where('time_slot_id', '!=', $slotId)
                     ->delete();
+
             } else {
                 // If disabled, remove any availability for that day
                 FacultyAvailability::where('user_id', $this->user->id)
@@ -217,6 +257,33 @@ class Manage extends Component
         }
 
         session()->flash('success_availability', 'Part-Time availability saved (custom time per day).');
+    }
+
+    /** ── Helpers ─────────────────────────────────────────────────────────── */
+
+    /** snap start to the next grid start at or after input */
+    private function snapStart(string $hhmm): string
+    {
+        foreach ($this->gridStarts as $s) {
+            if ($hhmm <= $s) return $s;
+        }
+        // if beyond last start, stay at last start
+        return end($this->gridStarts);
+    }
+
+    /** snap end to the previous grid end at or before input */
+    private function snapEnd(string $hhmm): string
+    {
+        foreach ($this->gridEnds as $e) {
+            if ($hhmm <= $e) return $e;
+        }
+        // if beyond last end, clamp to last end
+        return end($this->gridEnds);
+    }
+
+    private function isValidRange(string $start, string $end): bool
+    {
+        return $start < $end;
     }
 
     private function ensureTimeSlot(string $startTime, string $endTime): int
@@ -231,8 +298,10 @@ class Manage extends Component
 
     private function normalizeToSec(?string $hhmm): ?string
     {
-        if (!$hhmm || !preg_match('/^\d{2}:\d{2}$/', $hhmm)) return null;
-        return $hhmm . ':00';
+        if (!$hhmm) return null;
+        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $hhmm)) return $hhmm;
+        if (preg_match('/^\d{2}:\d{2}$/', $hhmm)) return $hhmm . ':00';
+        return null;
     }
 
     // Friday >= 3 hours helper
@@ -241,6 +310,14 @@ class Manage extends Component
         [$sh,$sm] = array_map('intval', explode(':', $hhmmStart));
         [$eh,$em] = array_map('intval', explode(':', $hhmmEnd));
         return ($eh*60 + $em) - ($sh*60 + $sm);
+    }
+
+    // diff where inputs are 'HH:MM:SS'
+    private function diffMinutesSec(string $secStart, string $secEnd): int
+    {
+        [$sh,$sm,$ss] = array_map('intval', explode(':', $secStart));
+        [$eh,$em,$es] = array_map('intval', explode(':', $secEnd));
+        return (int) round((($eh*3600 + $em*60 + $es) - ($sh*3600 + $sm*60 + $ss)) / 60);
     }
 
     /** Helper the scheduler can call to restrict Full-Timers to weekdays only */
