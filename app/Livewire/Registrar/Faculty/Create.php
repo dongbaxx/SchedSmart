@@ -28,20 +28,23 @@ class Create extends Component
     public ?int $course_id = null;
 
     public function mount(?int $userId = null): void
-    {
-        abort_unless(Auth::check() && Auth::user()->role === User::ROLE_REGISTRAR, 403);
+{
+    $dean = Auth::user();
+    abort_unless($dean && $dean->role === User::ROLE_REGISTRAR, 403);
 
-        $this->userId = $userId;
+    // IMPORTANT: basaha ang userId gikan sa route OR query string
+    $this->userId = $userId ?? request()->integer('userId');
 
-        if ($userId) {
-            $u = User::findOrFail($userId);
-            $this->name          = (string) ($u->name ?? '');
-            $this->email         = (string) ($u->email ?? '');
-            $this->role          = $u->role ?? null; // keep as-is
-            $this->department_id = $u->department_id;
-            $this->course_id     = $u->course_id;
-        }
+    if ($this->userId) {
+        $u = User::findOrFail($this->userId);
+        $this->name          = (string) ($u->name ?? '');
+        $this->email         = (string) ($u->email ?? '');
+        $this->role          = $u->role ?? null; // keep as-is
+        $this->department_id = $u->department_id;
+        $this->course_id     = $u->course_id;
     }
+}
+
 
     /** Livewire v3: fired on any prop change */
     public function updated(string $name, $value): void

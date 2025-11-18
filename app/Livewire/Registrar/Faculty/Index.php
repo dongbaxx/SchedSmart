@@ -10,6 +10,8 @@ use Livewire\Attributes\Url;
 use App\Models\User;
 use App\Models\Department;
 use App\Models\Course;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\QueryException;
 
 #[Title('Faculty & Users')]
 #[Layout('layouts.registrar-shell')]
@@ -17,12 +19,11 @@ class Index extends Component
 {
     use WithPagination;
 
-    // URL-synced state (v3)
     #[Url(as: 'search', except: '')]
     public string $search = '';
 
     #[Url(except: null)]
-    public ?string $role = null; // Registrar/Dean/Head/Faculty
+    public ?string $role = null;
 
     #[Url(except: null)]
     public ?int $departmentId = null;
@@ -30,17 +31,18 @@ class Index extends Component
     #[Url(except: null)]
     public ?int $courseId = null;
 
-    /**
-     * Reset pagination when any filter changes
-     */
+    public function mount(): void
+    {
+        abort_unless(Auth::check() && Auth::user()->role === User::ROLE_REGISTRAR, 403);
+    }
+
     public function updating($name, $value)
     {
-        if (in_array($name, ['search', 'role', 'departmentId', 'courseId'])) {
+        if (in_array($name, ['search', 'role', 'departmentId', 'courseId'], true)) {
             $this->resetPage();
         }
     }
 
-    /** Re-usable query builder for pagination refresh */
     protected function getUsersQuery()
     {
         return User::query()
@@ -49,7 +51,7 @@ class Index extends Component
                 $s = trim($this->search);
                 $qq->where(function ($w) use ($s) {
                     $w->where('name', 'like', "%{$s}%")
-                        ->orWhere('email', 'like', "%{$s}%");
+                      ->orWhere('email', 'like', "%{$s}%");
                 });
             })
             ->when($this->role, fn ($qq) => $qq->where('role', $this->role))
@@ -58,11 +60,48 @@ class Index extends Component
             ->orderBy('name');
     }
 
+    public function create(): void
+    {
+        $this->redirectRoute('registrar.faculty.create', navigate: true);
+    }
+
+    public function edit(int $userId): void
+    {
+        $this->redirectRoute('registrar.faculty.create', ['userId' => $userId], navigate: true);
+    }
+
+    public function delete(int $userId): void
+    {
+        $user = User::findOrFail($userId);
+
+        // Optional: dili tugotan nga i-delete ang Registrar ug self
+        if ($user->role === User::ROLE_REGISTRAR) {
+            session()->flash('error', 'You cannot delete a Registrar account.');
+            return;
+        }
+
+        if (Auth::id() === $user->id) {
+            session()->flash('error', 'You cannot delete your own account.');
+            return;
+        }
+
+        try {
+            $user->delete(); // if SoftDeletes, soft-delete ra ni
+            session()->flash('ok', 'User deleted successfully.');
+        } catch (QueryException $e) {
+            session()->flash(
+                'error',
+                'User cannot be deleted because it is linked to other records (foreign key constraint).'
+            );
+        }
+
+        $this->resetPage();
+    }
+
     public function render()
     {
         $q = $this->getUsersQuery();
 
-        // Roles list (uses constants if defined on User)
         $roles = defined(User::class.'::ROLE_REGISTRAR')
             ? [
                 User::ROLE_REGISTRAR,

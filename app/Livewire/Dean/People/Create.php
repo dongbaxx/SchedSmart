@@ -1,6 +1,5 @@
 <?php
 
-// app/Livewire/Dean/People/Create.php
 
 namespace App\Livewire\Dean\People;
 
