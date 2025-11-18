@@ -8,7 +8,7 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Models\{User, Specialization, Course};
 
-#[Title('Faculty Specializations')]
+#[Title('Academic Specializations')]
 #[Layout('layouts.dean-shell')]
 class Specializations extends Component
 {
@@ -23,15 +23,18 @@ class Specializations extends Component
         $dean = Auth::user();
         abort_unless($dean && $dean->role === User::ROLE_DEAN, 403);
 
-        // user must be Head/Faculty in same department
+        // user must be Dean/Head/Faculty in same department
         abort_if(
             $user->department_id !== $dean->department_id ||
-            !in_array($user->role, [User::ROLE_HEAD, User::ROLE_FACULTY], true),
+            !in_array($user->role, [User::ROLE_DEAN, User::ROLE_HEAD, User::ROLE_FACULTY], true),
             403
         );
 
         $this->user = $user;
-        $this->selected = $user->specializations()->pluck('specializations.id')->map(fn($i)=>(int)$i)->toArray();
+        $this->selected = $user->specializations()
+            ->pluck('specializations.id')
+            ->map(fn($i) => (int)$i)
+            ->toArray();
     }
 
     public function save(): void

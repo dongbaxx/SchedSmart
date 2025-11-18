@@ -16,7 +16,7 @@ class Manage extends Component
 
     // users_deparment
     public ?string $user_code_id = null;
-    public ?string $position = null;        // Faculty | Head (no Dean/Registrar here)
+    public ?string $position = null;        // Faculty | Head | Dean
     public ?int $dept_department_id = null; // auto-locked to Dean dept, but kept for UI binding
 
     // users_employments
@@ -30,18 +30,30 @@ class Manage extends Component
         $dean = Auth::user();
         abort_unless($dean && $dean->role === User::ROLE_DEAN, 403);
 
-        // target user must be in the same department & role is Head/Faculty
+        // target user must be in the same department & role is Dean/Head/Faculty
         abort_if(
             $user->department_id !== $dean->department_id ||
-            !in_array($user->role, [User::ROLE_HEAD, User::ROLE_FACULTY], true),
+            !in_array($user->role, [User::ROLE_DEAN, User::ROLE_HEAD, User::ROLE_FACULTY], true),
             403
         );
 
         $this->user = $user->load(['department','course','employment','userDepartment']);
 
         // preload users_deparment
-        $this->user_code_id       = $this->user->userDepartment->user_code_id ?? null;
-        $this->position           = $this->user->userDepartment->position ?? ($this->user->role === User::ROLE_HEAD ? 'Head' : 'Faculty');
+        if ($this->user->userDepartment) {
+            $this->user_code_id       = $this->user->userDepartment->user_code_id;
+            $this->position           = $this->user->userDepartment->position;
+        } else {
+            // default position based on role kung wala pay record
+            if ($this->user->role === User::ROLE_DEAN) {
+                $this->position = 'Dean';
+            } elseif ($this->user->role === User::ROLE_HEAD) {
+                $this->position = 'Head';
+            } else {
+                $this->position = 'Faculty';
+            }
+        }
+
         $this->dept_department_id = $dean->department_id; // lock to dean's dept
 
         // preload employment
@@ -56,7 +68,7 @@ class Manage extends Component
     {
         $this->validate([
             'user_code_id'        => ['nullable','string','max:255'],
-            'position'            => ['required','string','in:Faculty,Head'],
+            'position'            => ['required','string','in:Faculty,Head,Dean'],
             'dept_department_id'  => ['nullable','integer'], // ignored; we force dean dept
         ]);
 
@@ -64,7 +76,7 @@ class Manage extends Component
 
         $record = $this->user->userDepartment()->first() ?? new UsersDepartment(['user_id' => $this->user->id]);
         $record->user_code_id  = $this->user_code_id;
-        $record->position      = $this->position; // Faculty/Head only
+        $record->position      = $this->position; // Faculty/Head/Dean
         $record->department_id = $deanDept;       // hard lock
         $record->save();
 
@@ -102,4 +114,3 @@ class Manage extends Component
         ]);
     }
 }
-

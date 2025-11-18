@@ -1,16 +1,19 @@
 <?php
 
+// app/Livewire/Dean/People/Create.php
 
 namespace App\Livewire\Dean\People;
 
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
-use App\Models\{User, Course};
+use App\Models\User;
+use App\Models\Course;
+use App\Models\Department;
 
 #[Title('Add/Edit Head or Faculty')]
 #[Layout('layouts.dean-shell')]
@@ -20,68 +23,92 @@ class Create extends Component
 
     public string $name = '';
     public string $email = '';
-    public ?string $role = null; // Head|Faculty
+    public ?string $role = null;   // Head | Faculty
     public ?string $password = null;
     public string $password_confirmation = '';
 
-    public ?int $course_id = null;
+    public ?int $course_id = null;     // bound to select
+
+    /** Dean's department (locked) */
+    public int $department_id;
 
     public function mount(?int $userId = null): void
     {
         $dean = Auth::user();
         abort_unless($dean && $dean->role === User::ROLE_DEAN, 403);
 
-        $this->userId = $userId;
+        // Dean's department is fixed
+        $this->department_id = (int) $dean->department_id;
 
-        if ($userId) {
-            $u = User::findOrFail($userId);
+        // Resolve userId from:
+        // - Livewire param
+        // - route param {userId} or {user}
+        // - query string ?userId=123
+        $routeId = request()->route('userId')
+            ?? request()->route('user')
+            ?? request()->integer('userId');
 
-            // cannot edit outside my department or outside allowed roles
-            abort_if(
-                $u->department_id !== $dean->department_id
-                || !in_array($u->role, [User::ROLE_HEAD, User::ROLE_FACULTY], true),
-                403
-            );
+        $this->userId = $userId ?? (is_numeric($routeId) ? (int) $routeId : null);
 
-            $this->name  = (string) $u->name;
-            $this->email = (string) $u->email;
-            $this->role  = (string) $u->role;
-            $this->course_id = $u->course_id;
+        // If editing, load existing data so form is NOT empty
+        if ($this->userId) {
+            $u = User::whereIn('role', [User::ROLE_HEAD, User::ROLE_FACULTY])
+                ->where('department_id', $this->department_id)
+                ->findOrFail($this->userId);
+
+            $this->name      = (string) ($u->name ?? '');
+            $this->email     = (string) ($u->email ?? '');
+            $this->role      = $u->role ?? null;
+            $this->course_id = $u->course_id;   // ❗ this preselects the Course / Program
         }
     }
 
     public function updated(string $name, $value): void
     {
-        if ($name === 'role') {
-            // no department select here; dean's department is enforced in save()
+        // Optional alias: "Chairperson" → HEAD
+        if ($name === 'role' && $value === 'Chairperson') {
+            $this->role = User::ROLE_HEAD;
         }
     }
 
     public function save(): void
     {
         $dean = Auth::user();
-        $deptId = (int) $dean->department_id;
+        abort_unless($dean && $dean->role === User::ROLE_DEAN, 403);
 
         $allowedRoles = [User::ROLE_HEAD, User::ROLE_FACULTY];
 
         $this->validate([
-            'name'     => ['required','string','max:255'],
-            'email'    => ['required','email','max:255', Rule::unique('users','email')->ignore($this->userId)],
-            'role'     => ['required', Rule::in($allowedRoles)],
-            'password' => [$this->userId ? 'nullable' : 'required', 'confirmed', Password::defaults()],
+            'name'  => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($this->userId),
+            ],
+            'role'  => ['required', Rule::in($allowedRoles)],
 
-            // Head/Faculty must have course_id under the Dean’s department
-            'course_id'=> [
-                'required','integer',
-                Rule::exists('courses','id')->where(fn($q) => $q->where('department_id', $deptId)),
+            // password required kung create; optional kung edit
+            'password' => [
+                $this->userId ? 'nullable' : 'required',
+                'confirmed',
+                Password::defaults(),
+            ],
+
+            'course_id' => [
+                'required',
+                'integer',
+                Rule::exists('courses', 'id')->where(
+                    fn ($q) => $q->where('department_id', $this->department_id)
+                ),
             ],
         ]);
 
         $data = [
-            'name'  => $this->name,
-            'email' => $this->email,
-            'role'  => $this->role,
-            'department_id' => $deptId, // lock to dean's department
+            'name'          => $this->name,
+            'email'         => $this->email,
+            'role'          => $this->role,
+            'department_id' => $this->department_id,
             'course_id'     => $this->course_id,
         ];
 
@@ -89,31 +116,30 @@ class Create extends Component
             $data['password'] = Hash::make($this->password);
         }
 
-        // prevent upgrading to Dean/Registrar via tampering
-        abort_if(!in_array($data['role'], $allowedRoles, true), 403);
-
         $user = User::updateOrCreate(['id' => $this->userId], $data);
+        $this->userId = $user->id;
 
-        // double-check confinement after save (in case of race/changes)
-        abort_if($user->department_id !== $deptId, 403);
-
-        session()->flash('ok', 'User created/updated successfully.');
+        session()->flash('ok', 'Head/Faculty saved successfully.');
         $this->redirectRoute('dean.people.index', navigate: true);
     }
 
     public function render()
     {
-        $deptId = (int) Auth::user()->department_id;
+        $deptId = $this->department_id;
 
-        $courses = Course::select(['id','course_name as name'])
-            ->where('department_id', $deptId)
+        // Only courses under Dean's department
+        $courses = Course::where('department_id', $deptId)
             ->orderBy('course_name')
-            ->get();
+            ->get(['id', 'course_name']);
+
+        $roles = [User::ROLE_HEAD, User::ROLE_FACULTY];
+
+        $departmentName = Department::find($deptId)?->department_name ?? '—';
 
         return view('livewire.dean.people.create', [
-            'roles'   => [User::ROLE_HEAD, User::ROLE_FACULTY],
-            'courses' => $courses,
+            'courses'        => $courses,
+            'roles'          => $roles,
+            'departmentName' => $departmentName,
         ]);
     }
 }
-

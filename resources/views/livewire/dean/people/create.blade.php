@@ -1,83 +1,163 @@
 {{-- resources/views/livewire/dean/people/create.blade.php --}}
 
-<div class="max-w-2xl mx-auto space-y-6">
-  <div class="flex items-center justify-between">
-    <h1 class="text-xl font-semibold text-emerald-900">
-      {{ $userId ? 'Edit Head/Faculty' : 'Add Head/Faculty' }}
-    </h1>
-    <a href="{{ route('dean.people.index') }}"
-       class="rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200">Back</a>
-  </div>
+<div class="max-w-3xl space-y-6">
 
-  @if (session('ok'))
-    <div class="rounded-lg bg-emerald-50 text-emerald-800 px-3 py-2 text-sm border border-emerald-200">
+  {{-- flash --}}
+  @if(session('ok'))
+    <div class="rounded-lg border-l-4 border-emerald-500 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
       {{ session('ok') }}
     </div>
   @endif
 
-  <form wire:submit.prevent="save" class="space-y-4 bg-white p-6 rounded-xl border border-gray-200">
-
+  {{-- header --}}
+  <div class="flex items-center justify-between gap-3">
     <div>
-      <label class="block text-sm text-gray-600 mb-1">Full name</label>
-      <input type="text" wire:model.defer="name"
-             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
-      @error('name') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
+      <h1 class="text-xl font-semibold text-emerald-900">
+        {{ $userId ? 'Edit Head/Faculty' : 'Add Head/Faculty' }}
+      </h1>
+      <p class="text-sm text-gray-500">
+        Department is locked to yours; you may reassign the Head/Faculty to any course/program under your department.
+      </p>
     </div>
 
-    <div>
-      <label class="block text-sm text-gray-600 mb-1">Email</label>
-      <input type="email" wire:model.defer="email"
-             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
-      @error('email') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
-    </div>
+    <a
+      href="{{ route('dean.people.index') }}"
+      wire:navigate
+      class="inline-flex items-center rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+    >
+      Back
+    </a>
+  </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <form wire:submit.prevent="save" class="space-y-6 bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+
+    {{-- name + email --}}
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <div>
-        <label class="block text-sm text-gray-600 mb-1">
+        <label class="mb-1 block text-xs font-semibold text-gray-700">
+          Full name <span class="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          wire:model="name"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+        @error('name')
+          <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+        @enderror
+      </div>
+
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-gray-700">
+          Email <span class="text-red-500">*</span>
+        </label>
+        <input
+          type="email"
+          wire:model="email"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+        @error('email')
+          <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+        @enderror
+      </div>
+    </div>
+
+    {{-- password --}}
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-gray-700">
           Password {{ $userId ? '(leave blank to keep)' : '' }}
         </label>
-        <input type="password" wire:model.defer="password"
-               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
-        @error('password') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
+        <input
+          type="password"
+          wire:model="password"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+        @error('password')
+          <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+        @enderror
       </div>
+
       <div>
-        <label class="block text-sm text-gray-600 mb-1">Confirm Password</label>
-        <input type="password" wire:model.defer="password_confirmation"
-               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
+        <label class="mb-1 block text-xs font-semibold text-gray-700">
+          Confirm Password
+        </label>
+        <input
+          type="password"
+          wire:model="password_confirmation"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
       </div>
     </div>
 
-    <div>
-      <label class="block text-sm text-gray-600 mb-1">Role</label>
-      <select wire:model.live="role"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
-        <option value="">— Select —</option>
-        @foreach($roles as $r)
-          <option value="{{ $r }}">{{ $r }}</option>
-        @endforeach
-      </select>
-      @error('role') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
+    {{-- role + course --}}
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-gray-700">
+          Role <span class="text-red-500">*</span>
+        </label>
+        <select
+          wire:model="role"
+          class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+          <option value="">— Select —</option>
+          @foreach($roles as $r)
+            <option value="{{ $r }}">{{ $r }}</option>
+          @endforeach
+        </select>
+        @error('role')
+          <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+        @enderror
+      </div>
+
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-gray-700">
+          Department
+        </label>
+        <div class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+          {{ $departmentName }}
+        </div>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-gray-700">
+          Course / Program <span class="text-red-500">*</span>
+        </label>
+        <select
+          wire:model="course_id"
+          class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+          <option value="">— Select —</option>
+          @foreach($courses as $c)
+            <option value="{{ $c->id }}">{{ $c->course_name }}</option>
+          @endforeach
+        </select>
+        @error('course_id')
+          <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+        @enderror
+      </div>
     </div>
 
-    <div>
-      <label class="block text-sm text-gray-600 mb-1">Course / Program</label>
-      <select wire:model.live="course_id"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
-        <option value="">— Select —</option>
-        @foreach($courses as $c)
-          <option value="{{ $c->id }}">{{ $c->name }}</option>
-        @endforeach
-      </select>
-      @error('course_id') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
-      <div class="text-xs text-gray-500 mt-1">Department is locked to yours; only courses in your department are shown.</div>
-    </div>
+    <p class="text-xs text-gray-500">
+      Department is locked to yours; only courses in your department are shown.
+    </p>
 
-    <div class="pt-2">
-      <button type="submit"
-              class="rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm hover:bg-emerald-700">
+    {{-- actions --}}
+    <div class="flex items-center justify-end gap-3 pt-2">
+      <a
+        href="{{ route('dean.people.index') }}"
+        wire:navigate
+        class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+      >
+        Cancel
+      </a>
+
+      <button
+        type="submit"
+        class="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      >
         {{ $userId ? 'Update' : 'Create' }}
       </button>
     </div>
-
   </form>
 </div>
