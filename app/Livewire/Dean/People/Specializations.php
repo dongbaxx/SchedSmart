@@ -1,83 +1,94 @@
-<?php
+    <?php
 
-namespace App\Livewire\Dean\People;
+    namespace App\Livewire\Dean\People;
 
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
-use Livewire\Component;
-use Illuminate\Support\Facades\Auth;
-use App\Models\{User, Specialization, Course};
+    use Livewire\Attributes\Layout;
+    use Livewire\Attributes\Title;
+    use Livewire\Component;
+    use Illuminate\Support\Facades\Auth;
+    use App\Models\{User, Specialization};
 
-#[Title('Academic Specializations')]
-#[Layout('layouts.dean-shell')]
-class Specializations extends Component
-{
-    public User $user;
-    /** @var array<int> */
-    public array $selected = [];
-    public string $search = '';
-    public bool $filterByCourse = true;
-
-    public function mount(User $user): void
+    #[Title('Academic Specializations')]
+    #[Layout('layouts.dean-shell')]
+    class Specializations extends Component
     {
-        $dean = Auth::user();
-        abort_unless($dean && $dean->role === User::ROLE_DEAN, 403);
+        public User $user;
 
-        // user must be Dean/Head/Faculty in same department
-        abort_if(
-            $user->department_id !== $dean->department_id ||
-            !in_array($user->role, [User::ROLE_DEAN, User::ROLE_HEAD, User::ROLE_FACULTY], true),
-            403
-        );
+        /** @var array<int> */
+        public array $selected = [];
 
-        $this->user = $user;
-        $this->selected = $user->specializations()
-            ->pluck('specializations.id')
-            ->map(fn($i) => (int)$i)
-            ->toArray();
-    }
+        public string $search = '';
 
-    public function save(): void
-    {
-        $ids = $this->selected;
+        // Default OFF — para makita tanan sa first load,
+        // unya kung i-check ang checkbox, BSIT-only (or course-only) ra
+        public bool $filterByCourse = false;
 
-        $query = Specialization::query()->whereIn('id', $ids);
+        public function mount(User $user): void
+        {
+            $dean = Auth::user();
+            abort_unless($dean && $dean->role === User::ROLE_DEAN, 403);
 
-        // when filtering by course: allow general (NULL course_id) or same course
-        if ($this->filterByCourse && $this->user->course_id) {
-            $query->where(function($q) {
-                $q->whereNull('course_id')
-                  ->orWhere('course_id', $this->user->course_id);
-            });
+            // user must be Dean/Head/Faculty in same department
+            abort_if(
+                $user->department_id !== $dean->department_id ||
+                !in_array($user->role, [User::ROLE_DEAN, User::ROLE_HEAD, User::ROLE_FACULTY], true),
+                403
+            );
+
+            $this->user = $user;
+
+            $this->selected = $user->specializations()
+                ->pluck('specializations.id')
+                ->map(fn ($i) => (int) $i)
+                ->toArray();
         }
 
-        $validIds = $query->pluck('id')->all();
-        $this->selected = array_values(array_intersect($ids, $validIds));
+        public function save(): void
+        {
+            $ids = $this->selected;
 
-        $this->user->specializations()->sync($this->selected);
+            // Base query sa gipang-check nga IDs
+            $query = Specialization::query()->whereIn('id', $ids);
 
-        session()->flash('ok', 'Specializations updated.');
-        redirect()->route('dean.people.index');
-    }
-
-    public function render()
-    {
-        $specs = Specialization::query()
-            ->when($this->filterByCourse && $this->user->course_id, function($q) {
-                $q->where(function($w) {
-                    $w->whereNull('course_id')
-                      ->orWhere('course_id', $this->user->course_id);
+            // ALWAYS limit sa same course + general (NULL),
+            // para dili maka-assign ug specializations sa lain nga course.
+            if ($this->user->course_id) {
+                $query->where(function ($q) {
+                    $q->whereNull('course_id')
+                    ->orWhere('course_id', $this->user->course_id);
                 });
-            })
-            ->when($this->search !== '', function($q) {
-                $s = trim($this->search);
-                $q->where('name','like',"%{$s}%");
-            })
-            ->orderBy('name')
-            ->get(['id','name','course_id']);
+            }
 
-        return view('livewire.dean.people.specializations', [
-            'specs' => $specs,
-        ]);
+            $validIds = $query->pluck('id')->all();
+
+            // i-filter ang selected IDs base sa validIds
+            $this->selected = array_values(array_intersect($ids, $validIds));
+
+            $this->user->specializations()->sync($this->selected);
+
+            session()->flash('ok', 'Specializations updated.');
+            redirect()->route('dean.people.index');
+        }
+
+        public function render()
+        {
+            $specs = Specialization::query()
+                // VIEW FILTER:
+                // kung naka-check ang "Show only for this course",
+                // ipakita lang ang specializations nga exact same course_id.
+                ->when($this->filterByCourse && $this->user->course_id, function ($q) {
+                    $q->where('course_id', $this->user->course_id);
+                })
+                // kung wala gi-check, makita tanan (general + all courses)
+                ->when($this->search !== '', function ($q) {
+                    $s = trim($this->search);
+                    $q->where('name', 'like', "%{$s}%");
+                })
+                ->orderBy('name')
+                ->get(['id', 'name', 'course_id']);
+
+            return view('livewire.dean.people.specializations', [
+                'specs' => $specs,
+            ]);
+        }
     }
-}
