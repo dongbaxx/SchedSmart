@@ -36,13 +36,13 @@
           'label'   => 'Specializations',
           'route'   => 'dean.special.index',
           'pattern' => 'dean.special*',
-          'icon'    => 'M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m8-6a3 3 0 11-6 0 3 3 0 016 0M10 8a3 3 0 11-6 0 3 3 0 016 0',
-        ],
+          'icon'    => 'M12 14l9-5-9-5-9 5 9 5zm0 0v6m0 0a9 9 0 01-9-9m9 9a9 9 0 009-9',
+         ],
         [
           'label'   => 'Offerings',
           'route'   => 'dean.offers.index',
           'pattern' => 'dean.offers*',
-          'icon'    => 'M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m8-6a3 3 0 11-6 0 3 3 0 016 0M10 8a3 3 0 11-6 0 3 3 0 016 0',
+          'icon'    => 'M9 2a1 1 0 00-1 1v1H5a2 2 0 00-2 2v13a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2h-3V3a1 1 0 00-1-1H9zm0 0h6v4H9V2zm1 7h4m-4 4h4m-4 4h4',
         ],
       ];
     @endphp

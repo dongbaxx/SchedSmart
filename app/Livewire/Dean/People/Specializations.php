@@ -19,9 +19,8 @@ class Specializations extends Component
 
     public string $search = '';
 
-    // Default OFF — para makita tanan sa first load,
-    // unya kung i-check ang checkbox, BSIT-only (or course-only) ra
-    public bool $filterByCourse = false;
+    // ✅ Default: TRUE para pag-sulod sa page, course-only na daan ang makita
+    public bool $filterByCourse = true;
 
     public function mount(User $user): void
     {
@@ -47,11 +46,9 @@ class Specializations extends Component
     {
         $ids = $this->selected;
 
-        // Base query sa gipang-check nga IDs
+        // Safety: ang ma-save ra kay general + same course sa user
         $query = Specialization::query()->whereIn('id', $ids);
 
-        // ALWAYS limit sa same course + general (NULL),
-        // para dili maka-assign ug specializations sa lain nga course.
         if ($this->user->course_id) {
             $query->where(function ($q) {
                 $q->whereNull('course_id')
@@ -61,7 +58,6 @@ class Specializations extends Component
 
         $validIds = $query->pluck('id')->all();
 
-        // i-filter ang selected IDs base sa validIds
         $this->selected = array_values(array_intersect($ids, $validIds));
 
         $this->user->specializations()->sync($this->selected);
@@ -72,18 +68,22 @@ class Specializations extends Component
 
     public function render()
     {
+        $searchTerm = trim($this->search);
+
         $specs = Specialization::query()
-            // VIEW FILTER:
-            // kung naka-check ang "Show only for this course",
-            // ipakita lang ang specializations nga exact same course_id.
+            ->with('course')
+
+            // ✅ Default behavior: pag-sulod sa page, filterByCourse = true
+            //     → specializations nga course_id == user->course_id RA ang makita
             ->when($this->filterByCourse && $this->user->course_id, function ($q) {
                 $q->where('course_id', $this->user->course_id);
             })
-            // kung wala gi-check, makita tanan (general + all courses)
-            ->when($this->search !== '', function ($q) {
-                $s = trim($this->search);
-                $q->where('name', 'like', "%{$s}%");
+
+            // search
+            ->when($searchTerm !== '', function ($q) use ($searchTerm) {
+                $q->where('name', 'like', "%{$searchTerm}%");
             })
+
             ->orderBy('name')
             ->get(['id', 'name', 'course_id']);
 
