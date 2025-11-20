@@ -12,8 +12,16 @@
 
   {{-- SIDEBAR --}}
   <aside class="w-64 bg-emerald-900 text-white flex flex-col">
-    <div class="h-16 flex items-center px-5 text-xl font-bold border-b border-emerald-800">
-      SchedSmart
+    <div class="h-16 flex items-center gap-3 px-5 border-b border-emerald-800">
+      {{-- LOGO + SYSTEM NAME (no circle) --}}
+      <img
+        src="{{ asset('images/sfxc_logo.png') }}"
+        alt="SFXC Logo"
+        class="h-10 w-10 object-contain"
+      >
+      <span class="text-xl font-bold">
+        SchedSmart
+      </span>
     </div>
 
     @php
@@ -55,8 +63,6 @@
           // Clipboard with lines icon
           'icon'    => 'M9 2a1 1 0 011-1h4a1 1 0 011 1h3a1 1 0 011 1v18a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1h5zm1 0h4v2h-4V2zm0 6h6v2h-6V8zm0 4h6v2h-6v-2zm0 4h6v2h-6v-2z',
         ],
-
-
       ];
     @endphp
 

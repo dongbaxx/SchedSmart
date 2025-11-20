@@ -1,19 +1,27 @@
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'SchedSmart' }}</title>
     @vite(['resources/css/app.css','resources/js/app.js'])
     @livewireStyles
-    </head>
-    <body class="h-screen bg-gray-100 text-gray-800 antialiased">
-    <div class="h-full flex">
+</head>
+<body class="h-screen bg-gray-100 text-gray-800 antialiased">
+<div class="h-full flex">
 
     {{-- SIDEBAR (Registrar only) --}}
     <aside class="w-64 bg-emerald-900 text-white flex flex-col">
-        <div class="h-16 flex items-center px-5 text-xl font-bold border-b border-emerald-800">
-        SchedSmart
+        <div class="h-16 flex items-center gap-3 px-5 border-b border-emerald-800">
+            {{-- LOGO + NAME (no circle/border) --}}
+            <img
+                src="{{ asset('images/sfxc_logo.png') }}"
+                alt="SFXC Logo"
+                class="h-10 w-10 object-contain"
+            >
+            <span class="text-xl font-bold">
+                SchedSmart
+            </span>
         </div>
 
         @php
@@ -91,55 +99,54 @@
                     'icon'    => 'M9 2a1 1 0 00-1 1v1H5a2 2 0 00-2 2v13a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2h-3V3a1 1 0 00-1-1H9zm0 0h6v4H9V2zm1 7h4m-4 4h4m-4 4h4',
                 ],
             ];
-            @endphp
-
+        @endphp
 
         <nav class="flex-1 px-3 py-4 space-y-2">
-        @foreach($items as $it)
-            @php $active = request()->routeIs($it['pattern']); @endphp
-            <a href="{{ route($it['route']) }}"
-            class="flex items-center gap-3 px-3 py-2 rounded-lg transition
-                    {{ $active ? 'bg-emerald-700/90' : 'hover:bg-emerald-800/80' }}">
-            <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="{{ $it['icon'] }}"/>
-            </svg>
-            <span class="text-sm font-medium">{{ $it['label'] }}</span>
-            </a>
-        @endforeach
+            @foreach($items as $it)
+                @php $active = request()->routeIs($it['pattern']); @endphp
+                <a href="{{ route($it['route']) }}"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg transition
+                          {{ $active ? 'bg-emerald-700/90' : 'hover:bg-emerald-800/80' }}">
+                    <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="{{ $it['icon'] }}"/>
+                    </svg>
+                    <span class="text-sm font-medium">{{ $it['label'] }}</span>
+                </a>
+            @endforeach
         </nav>
 
         <div class="p-4 border-t border-emerald-800 space-y-3">
-      {{-- profile quick row (CLICKABLE -> settings.profile) --}}
-      @php
-        $initials = method_exists($u, 'initials')
-          ? $u?->initials()
-          : strtoupper(mb_substr($u?->name ?? $u?->email ?? 'U', 0, 1));
-        $onSettings = request()->routeIs('settings.profile');
-      @endphp
+            {{-- profile quick row (CLICKABLE -> settings.profile) --}}
+            @php
+                $initials = method_exists($u, 'initials')
+                  ? $u?->initials()
+                  : strtoupper(mb_substr($u?->name ?? $u?->email ?? 'U', 0, 1));
+                $onSettings = request()->routeIs('settings.profile');
+            @endphp
 
-      <a href="{{ route('settings.profile') }}"
-         class="flex items-center gap-3 px-2 py-2 rounded-lg transition group
-                {{ $onSettings ? 'bg-emerald-800/80 ring-2 ring-emerald-500/60' : 'hover:bg-emerald-800/70' }}"
-         title="Open Profile Settings">
-        <div class="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center text-sm font-semibold">
-          {{ $initials }}
-        </div>
-        <div class="min-w-0">
-          <div class="text-sm font-semibold truncate group-hover:underline">{{ $u?->name }}</div>
-          <div class="text-xs text-emerald-200 truncate">{{ $u?->role }}</div>
-        </div>
-      </a>
+            <a href="{{ route('settings.profile') }}"
+               class="flex items-center gap-3 px-2 py-2 rounded-lg transition group
+                      {{ $onSettings ? 'bg-emerald-800/80 ring-2 ring-emerald-500/60' : 'hover:bg-emerald-800/70' }}"
+               title="Open Profile Settings">
+                <div class="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center text-sm font-semibold">
+                    {{ $initials }}
+                </div>
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold truncate group-hover:underline">{{ $u?->name }}</div>
+                    <div class="text-xs text-emerald-200 truncate">{{ $u?->role }}</div>
+                </div>
+            </a>
 
-        {{-- logout --}}
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
-            <button class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-800 hover:bg-emerald-700 text-sm">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1"/>
-            </svg>
-            Logout
-            </button>
-        </form>
+            {{-- logout --}}
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-800 hover:bg-emerald-700 text-sm">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1"/>
+                    </svg>
+                    Logout
+                </button>
+            </form>
         </div>
     </aside>
 
@@ -156,21 +163,20 @@
             </div>
         </header>
 
-
         <main class="flex-1 overflow-y-auto">
-        <div class="px-6 py-5">
-            <div class="bg-gray-50 rounded-xl border border-gray-200 p-6 shadow-sm">
-            {{ $slot }}
+            <div class="px-6 py-5">
+                <div class="bg-gray-50 rounded-xl border border-gray-200 p-6 shadow-sm">
+                    {{ $slot }}
+                </div>
             </div>
-        </div>
         </main>
 
         <footer class="h-12 text-xs text-gray-500 flex items-center justify-center border-t bg-white">
-        © {{ date('Y') }} SchedSmart. All rights reserved.
+            © {{ date('Y') }} SchedSmart. All rights reserved.
         </footer>
     </div>
-    </div>
+</div>
 
-    @livewireScripts
-    </body>
-    </html>
+@livewireScripts
+</body>
+</html>

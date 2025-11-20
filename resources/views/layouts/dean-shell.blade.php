@@ -12,8 +12,16 @@
 
   {{-- SIDEBAR (Dean area) --}}
   <aside class="w-64 bg-emerald-900 text-white flex flex-col">
-    <div class="h-16 flex items-center px-5 text-xl font-bold border-b border-emerald-800">
-      SchedSmart
+    <div class="h-16 flex items-center gap-3 px-5 border-b border-emerald-800">
+      {{-- LOGO + SYSTEM NAME (no circle) --}}
+      <img
+        src="{{ asset('images/sfxc_logo.png') }}"
+        alt="SFXC Logo"
+        class="h-10 w-10 object-contain"
+      >
+      <span class="text-xl font-bold">
+        SchedSmart
+      </span>
     </div>
 
     @php

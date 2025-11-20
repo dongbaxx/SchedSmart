@@ -65,10 +65,18 @@ new #[Layout('components.layouts.auth')] class extends Component {
 ?>
 
 <!-- ==================== LOGIN PAGE ==================== -->
-<div class="flex flex-col items-center justify-center min-h-screen bg-white dark:bg-white p-6">
+<div
+    class="fixed inset-0 w-screen h-screen flex items-center justify-center bg-cover bg-center overflow-hidden"
+    style="background-image: url('{{ asset('images/login-bg-sfxc.jpg') }}');"
+>
+    <!-- Super light overlay para dili ma-itom ang image -->
+    <div class="absolute inset-0 bg-black/5"></div>
 
-    <!-- ✅ LOGIN CARD -->
-    <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm flex flex-col items-center gap-6">
+    <!-- ✅ LOGIN CARD (very transparent glass) -->
+    <div
+        class="relative z-10 rounded-2xl border border-white/50 bg-white/10 backdrop-blur-sm shadow-xl
+               px-8 py-10 w-full max-w-sm flex flex-col items-center gap-6"
+    >
 
         <!-- ✅ SCHOOL LOGO -->
         <img src="{{ asset('images/sfxc_logo.png') }}"
@@ -76,15 +84,15 @@ new #[Layout('components.layouts.auth')] class extends Component {
              class="h-20 w-auto bg-transparent">
 
         <!-- ✅ Title -->
-        <h1 class="text-xl font-semibold text-center text-gray-800">
+        <h1 class="text-xl font-semibold text-center text-white drop-shadow">
             {{ __('Log in to your account') }}
         </h1>
-        <p class="text-sm text-center text-gray-500">
+        <p class="text-sm text-center text-zinc-100 drop-shadow">
             {{ __('Enter your email and password below to continue.') }}
         </p>
 
         <!-- ✅ Session Status -->
-        <x-auth-session-status class="text-center" :status="session('status')" />
+        <x-auth-session-status class="text-center text-zinc-100" :status="session('status')" />
 
         <!-- ✅ Login Form -->
         <form method="POST" wire:submit="login" class="flex flex-col gap-6 w-full">
@@ -127,7 +135,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         <!-- ✅ Register Link -->
         @if (Route::has('register'))
-            <div class="space-x-1 rtl:space-x-reverse text-center text-sm text-zinc-600 mt-2">
+            <div class="space-x-1 rtl:space-x-reverse text-center text-sm text-zinc-100 mt-2">
                 <span>{{ __('Don\'t have an account?') }}</span>
                 <flux:link :href="route('register')" wire:navigate>
                     {{ __('Sign up') }}
