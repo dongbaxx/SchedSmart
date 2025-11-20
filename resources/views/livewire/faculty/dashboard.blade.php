@@ -147,7 +147,7 @@ body { background-color:#fbfaf8!important; }
                 </div>
               </div>
 
-              <div class="h-title">LOADS</div>
+              <div class="h-title">FACULTY LOADS</div>
 
               <table class="table">
                   <thead>
@@ -190,7 +190,7 @@ body { background-color:#fbfaf8!important; }
       </div>
   @empty
       <div class="text-gray-500">
-          Walay na-generate nga loads para sa imong account
+          No Loads for this term.
           @if($academicId) sa Academic ID <span class="font-semibold">{{ $academicId }}</span> @endif.
       </div>
   @endforelse

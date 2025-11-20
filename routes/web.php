@@ -35,6 +35,7 @@ use App\Livewire\Head\Loads;
 use App\Livewire\Dean\People;
 use App\Livewire\Dean\Special;
 use App\Livewire\Dean\Offers;
+use App\Livewire\Dean\Load;
 
 
 use App\Models\User;
@@ -140,6 +141,10 @@ Route::middleware(['auth','role:Dean'])->group(function () {
 
         Route::get('/offers',                              Offers\Index::class)->name('offers.index');
         Route::get('/history',                             Offers\History::class)->name('offers.history');
+
+
+        Route::get('/load',                                  Load::class)->name('load');
+
     });
 
 });

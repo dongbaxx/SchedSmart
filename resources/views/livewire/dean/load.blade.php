@@ -1,3 +1,5 @@
+{{-- resources/views/livewire/dean/loads.blade.php --}}
+
 {{-- ===================== PRINT & SCREEN STYLES ===================== --}}
 <style>
 @media print {
@@ -147,7 +149,7 @@ body { background-color:#fbfaf8!important; }
                 </div>
               </div>
 
-              <div class="h-title">HEAD LOADS</div>
+              <div class="h-title">DEAN LOADS</div>
 
               <table class="table">
                   <thead>
@@ -189,7 +191,7 @@ body { background-color:#fbfaf8!important; }
       </div>
   @empty
       <div class="text-gray-500">
-          Walay na-generate nga loads para sa imong account
+          No loads for this term.
           @if($academicId) sa Academic ID <span class="font-semibold">{{ $academicId }}</span> @endif.
       </div>
   @endforelse

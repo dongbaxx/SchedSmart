@@ -61,7 +61,7 @@
           'route'   => 'head.loads',
           'pattern' => 'head.loads',
           // Clipboard with lines icon
-          'icon'    => 'M9 2a1 1 0 011-1h4a1 1 0 011 1h3a1 1 0 011 1v18a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1h5zm1 0h4v2h-4V2zm0 6h6v2h-6V8zm0 4h6v2h-6v-2zm0 4h6v2h-6v-2z',
+         'icon'    => 'M4 4h16v4H4z M6 10h12v2H6z M8 14h8v2H8z',
         ],
       ];
     @endphp
