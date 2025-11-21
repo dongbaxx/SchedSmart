@@ -28,6 +28,9 @@ class Index extends Component
     /** @var bool */
     public bool $isHead = false;
 
+    /** @var int|null Current Head user id */
+    public ?int $myUserId = null;
+
     public function mount(): void
     {
         /** @var \App\Models\User|null $me */
@@ -40,7 +43,8 @@ class Index extends Component
 
         // lock to the Head's assigned course
         $this->myCourseId = $me?->course_id;
-        // If the Head has no course_id, keep page but show empty result set
+        $this->myUserId   = $me?->id;
+        // If the Head has no course_id, keep page but show result as-is
     }
 
     public function updating($name, $value): void
@@ -50,11 +54,29 @@ class Index extends Component
         }
     }
 
+    /**
+     * Edit existing faculty (or self) - open Head Faculties Create form with userId
+     */
+    public function edit(int $userId): void
+    {
+        $this->redirectRoute('head.faculties.create', ['userId' => $userId], navigate: true);
+    }
+
     public function render()
     {
+        $meId = $this->myUserId;
+
         $q = User::query()
             ->with(['department','course','employment','userDepartment'])
-            ->where('role', 'Faculty')
+            // IMPORTANT: apil ang Head mismo sa list
+            ->where(function ($qq) use ($meId) {
+                $qq->where('role', 'Faculty');
+
+                if ($meId) {
+                    // apil ang current Head row bisan dili siya 'Faculty'
+                    $qq->orWhere('id', $meId);
+                }
+            })
             ->when($this->myCourseId, fn ($qq) => $qq->where('course_id', $this->myCourseId))
             ->when($this->search !== '', function ($qq) {
                 $s = trim($this->search);

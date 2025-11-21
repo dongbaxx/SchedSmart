@@ -11,8 +11,6 @@
 
     {{-- Controls: Add + Search --}}
     <div class="flex items-center justify-between gap-3">
-
-
         <input type="text" wire:model.live.debounce.400ms="search"
                placeholder="Search faculty by name or email..."
                class="w-full max-w-xs rounded-xl border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
@@ -39,32 +37,65 @@
                     <th class="px-4 py-2">Department</th>
                     <th class="px-4 py-2">Course</th>
                     <th class="px-4 py-2">Emp. (Reg/Extra)</th>
-                    <th class="px-4 py-2"></th>
+                    <th class="px-4 py-2 text-right">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 @forelse($users as $u)
-                    <tr>
+                    @php
+                        $reg = (int)($u->employment?->regular_load ?? 0);
+                        $ext = (int)($u->employment?->extra_load ?? 0);
+                        $isCurrentUser = auth()->id() === $u->id;
+                    @endphp
+
+                    <tr @class([
+                        'bg-emerald-50/60' => $isCurrentUser,
+                    ])>
                         <td class="px-4 py-2">
-                            <div class="font-medium text-slate-900">{{ $u->name }}</div>
-                            <div class="text-xs text-slate-500">Code: {{ $u->userDepartment?->user_code_id ?? '—' }}</div>
+                            <div class="flex items-center gap-2">
+                                <div>
+                                    <div class="font-medium text-slate-900">{{ $u->name }}</div>
+                                    <div class="text-xs text-slate-500">
+                                        Code: {{ $u->userDepartment?->user_code_id ?? '—' }}
+                                    </div>
+                                </div>
+
+                                @if($isCurrentUser)
+                                    <span class="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                                        (Head)
+                                    </span>
+                                @endif
+                            </div>
                         </td>
                         <td class="px-4 py-2 text-slate-700">{{ $u->email }}</td>
                         <td class="px-4 py-2">{{ $u->department?->department_name ?? '—' }}</td>
                         <td class="px-4 py-2">{{ $u->course?->course_name ?? '—' }}</td>
                         <td class="px-4 py-2">
-                            @php $reg=(int)($u->employment?->regular_load ?? 0); $ext=(int)($u->employment?->extra_load ?? 0); @endphp
                             {{ $reg }} / {{ $ext }}
                         </td>
-                        <td class="px-4 py-2 text-right space-x-1">
-                            <a href="{{ route('head.faculties.manage', $u) }}"
-                               class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-white text-xs hover:bg-emerald-700">
-                               Manage
-                            </a>
-                            <a href="{{ route('head.faculties.specializations', $u) }}"
-                               class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-white text-xs hover:bg-indigo-700">
-                               Specializations
-                            </a>
+                        <td class="px-4 py-2 text-right">
+                            <div class="inline-flex items-center gap-1">
+                                {{-- Edit (Livewire) --}}
+                                <button
+                                    type="button"
+                                    wire:click="edit({{ $u->id }})"
+                                    class="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50"
+                                >
+                                    Edit
+                                </button>
+
+                                {{-- Manage --}}
+                                <a href="{{ route('head.faculties.manage', $u) }}"
+                                   class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-white text-xs hover:bg-emerald-700">
+                                   Manage
+                                </a>
+
+                                {{-- Specializations --}}
+                                <a href="{{ route('head.faculties.specializations', $u) }}"
+                                   class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-white text-xs hover:bg-indigo-700">
+                                   Specializations
+                                </a>
+                            </div>
                         </td>
                     </tr>
                 @empty

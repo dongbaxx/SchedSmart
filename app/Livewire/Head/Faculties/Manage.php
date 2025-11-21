@@ -24,7 +24,7 @@ class Manage extends Component
 
     // users_deparment
     public ?string $user_code_id = null;
-    public ?string $position = null;        // e.g., 'Faculty'
+    public ?string $position = null;        // e.g., 'Faculty' | 'Head'
     public ?int $dept_department_id = null; // LOCKED read-only in UI (same department)
 
     // users_employments
@@ -69,17 +69,35 @@ class Manage extends Component
     {
         /** @var \App\Models\User|null $me */
         $me = Auth::user();
+        // Only Program Head / Chairperson
         abort_unless(in_array($me?->role, ['Head','Chairperson'], true), 403);
 
-        // scope protection: the target must be a Faculty and in my course
-        abort_unless($user->role === 'Faculty', 403);
-        abort_unless($me->course_id && $user->course_id === $me->course_id, 403);
+        // Scope protection:
+        // - pwede i-manage iyang kaugalingon (bisan Head)
+        // - OR Faculty nga same department + same course sa Head
+        $isSelf     = $user->id === $me->id;
+        $sameDept   = $user->department_id === $me->department_id;
+        $sameCourse = $me->course_id && $user->course_id === $me->course_id;
+        $isFaculty  = $user->role === 'Faculty';
+
+        abort_unless(
+            $isSelf || ($isFaculty && $sameDept && $sameCourse),
+            403
+        );
 
         // preload
         $this->user = $user->load(['department','course','employment','userDepartment']);
 
         $this->user_code_id = $this->user->userDepartment->user_code_id ?? null;
-        $this->position     = $this->user->userDepartment->position ?? 'Faculty';
+        // default position based on role
+        if ($this->user->userDepartment?->position) {
+            $this->position = $this->user->userDepartment->position;
+        } else {
+            $this->position = ($this->user->role === 'Head' || $this->user->role === 'Chairperson')
+                ? 'Head'
+                : 'Faculty';
+        }
+
         $this->dept_department_id = $this->user->department_id;
 
         $this->employment_classification = $this->user->employment->employment_classification ?? 'Teaching';
@@ -103,9 +121,11 @@ class Manage extends Component
             ->get(['day','time_slot_id','is_available']);
 
         foreach ($records as $rec) {
-            if (!$rec->timeSlot) continue;
+            if (!$rec->timeSlot) {
+                continue;
+            }
             $d = $rec->day;
-            $this->dayEnabled[$d] = (bool)$rec->is_available;
+            $this->dayEnabled[$d] = (bool) $rec->is_available;
             // store hh:mm
             $this->dayStart[$d] = substr($rec->timeSlot->start_time, 0, 5);
             $this->dayEnd[$d]   = substr($rec->timeSlot->end_time, 0, 5);
@@ -115,18 +135,20 @@ class Manage extends Component
     /** Livewire v3 hook: when status changes, show/hide the column instantly. */
     public function updatedEmploymentStatus(): void
     {
-        // no-op needed; but keep method so the UI re-renders live when status flips
+        // no-op; UI will re-render automatically
     }
 
     /*** Department save ***/
     public function saveDepartment()
     {
         $this->validate([
-            'user_code_id'       => ['nullable','string','max:255'],
-            'position'           => ['nullable','string','max:255'],
+            'user_code_id' => ['nullable','string','max:255'],
+            'position'     => ['nullable','string','in:Faculty,Head'],
         ]);
 
-        $record = $this->user->userDepartment()->first() ?: new UsersDepartment(['user_id' => $this->user->id]);
+        $record = $this->user->userDepartment()->first()
+            ?: new UsersDepartment(['user_id' => $this->user->id]);
+
         $record->user_code_id  = $this->user_code_id;
         $record->position      = $this->position ?: 'Faculty';
         $record->department_id = $this->user->department_id; // locked to user’s dept
@@ -145,7 +167,9 @@ class Manage extends Component
             'extra_load'                => ['nullable','integer','min:0','max:24'],
         ]);
 
-        $emp = $this->user->employment()->first() ?: new UsersEmployment(['user_id' => $this->user->id]);
+        $emp = $this->user->employment()->first()
+            ?: new UsersEmployment(['user_id' => $this->user->id]);
+
         $emp->employment_classification = $this->employment_classification;
         $emp->employment_status         = $this->employment_status;
         $emp->regular_load              = $this->regular_load ?? 0;
@@ -184,7 +208,9 @@ class Manage extends Component
                 // raw inputs (HH:MM)
                 $rawStart = $this->dayStart[$d] ?? null;
                 $rawEnd   = $this->dayEnd[$d]   ?? null;
-                if (!$rawStart || !$rawEnd) continue;
+                if (!$rawStart || !$rawEnd) {
+                    continue;
+                }
 
                 // snap to the nearest grid slot boundaries
                 $snappedStart = $this->snapStart($rawStart);  // e.g., 17:22 -> 17:30
@@ -199,7 +225,9 @@ class Manage extends Component
                 // PT end cap (safety; Editor grid already ends 20:30)
                 $startSec = $this->normalizeToSec($snappedStart);
                 $endSec   = $this->normalizeToSec($snappedEnd);
-                if ($endSec > $this->PT_END_LIMIT) { $endSec = $this->PT_END_LIMIT; }
+                if ($endSec > $this->PT_END_LIMIT) {
+                    $endSec = $this->PT_END_LIMIT;
+                }
 
                 // Friday ≥ 3 hours (prefer an exact 3h grid window that fits inside the raw input)
                 if ($d === 'FRI') {
@@ -265,7 +293,9 @@ class Manage extends Component
     private function snapStart(string $hhmm): string
     {
         foreach ($this->gridStarts as $s) {
-            if ($hhmm <= $s) return $s;
+            if ($hhmm <= $s) {
+                return $s;
+            }
         }
         // if beyond last start, stay at last start
         return end($this->gridStarts);
@@ -275,7 +305,9 @@ class Manage extends Component
     private function snapEnd(string $hhmm): string
     {
         foreach ($this->gridEnds as $e) {
-            if ($hhmm <= $e) return $e;
+            if ($hhmm <= $e) {
+                return $e;
+            }
         }
         // if beyond last end, clamp to last end
         return end($this->gridEnds);
@@ -298,18 +330,24 @@ class Manage extends Component
 
     private function normalizeToSec(?string $hhmm): ?string
     {
-        if (!$hhmm) return null;
-        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $hhmm)) return $hhmm;
-        if (preg_match('/^\d{2}:\d{2}$/', $hhmm)) return $hhmm . ':00';
+        if (!$hhmm) {
+            return null;
+        }
+        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $hhmm)) {
+            return $hhmm;
+        }
+        if (preg_match('/^\d{2}:\d{2}$/', $hhmm)) {
+            return $hhmm . ':00';
+        }
         return null;
     }
 
-    // Friday >= 3 hours helper
+    // Friday >= 3 hours helper (HH:MM)
     private function diffMinutes(string $hhmmStart, string $hhmmEnd): int
     {
         [$sh,$sm] = array_map('intval', explode(':', $hhmmStart));
         [$eh,$em] = array_map('intval', explode(':', $hhmmEnd));
-        return ($eh*60 + $em) - ($sh*60 + $sm);
+        return ($eh*60 + $em) - ($sh*60 + $em);
     }
 
     // diff where inputs are 'HH:MM:SS'
@@ -328,8 +366,12 @@ class Manage extends Component
 
     public function render()
     {
+        $me = Auth::user();
+
         return view('livewire.head.faculties.manage', [
-            'departments' => Department::orderBy('department_name')->get(['id','department_name']),
+            // for display only; locked to user’s department in UI
+            'departments' => Department::where('id', $this->user->department_id)
+                ->get(['id','department_name']),
             'roleBadge'   => $this->user->role ?? '—',
         ]);
     }

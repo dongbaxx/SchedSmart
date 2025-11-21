@@ -2,10 +2,14 @@
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-xl font-semibold text-emerald-900">Manage Faculty</h1>
-      <p class="text-sm text-gray-500">Update user code & employment caps. Department/Course are read-only.</p>
+      <p class="text-sm text-gray-500">
+        Update user code, employment caps, and (for Part-Time) availability. Department/Course are read-only.
+      </p>
     </div>
     <a href="{{ route('head.faculties.index') }}"
-       class="rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200">Back</a>
+       class="rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200">
+      Back
+    </a>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -85,8 +89,7 @@
           <select wire:model.defer="position"
                   class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
             <option value="Faculty">Faculty</option>
-            <option value="Chairperson" disabled>Head</option>
-            <option value="Dean" disabled>Dean</option>
+            <option value="Head">Head</option>
           </select>
           @error('position') <div class="mt-1 text-xs text-red-600">{{ $message }}</div> @enderror
         </div>
@@ -152,7 +155,7 @@
 
         @if (!$this->isPartTime)
           <div class="mt-3 text-xs text-gray-500">
-            Full-Time faculty are schedulable on weekdays only (Mon–Fri). Your generator should assume 08:00–18:00 availability (no weekends).
+            Full-Time faculty are schedulable on weekdays only (Mon–Fri). The scheduler can assume default day availability.
           </div>
         @endif
 
