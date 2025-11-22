@@ -15,7 +15,7 @@ class Index extends Component
     use WithPagination;
 
     public string $search = '';
-    public ?int $department_id = null; // pareho style sa course_id, year_level sa imong Sections
+    public ?int $department_id = null;
     public ?int $course_id = null;
     public int $perPage = 10;
 
