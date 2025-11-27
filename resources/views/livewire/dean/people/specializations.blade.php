@@ -1,5 +1,7 @@
 @php
     $courseName = $user->course?->course_name ?? 'this course';
+    $dean = auth()->user();
+    $isSelf = $dean && $dean->id === $user->id;
 @endphp
 
 <div class="max-w-5xl mx-auto space-y-6">
@@ -53,8 +55,14 @@
                 >
             </div>
 
-            @if ($user->course_id)
-                {{-- Button: only this course (default active) --}}
+            @if ($isSelf)
+                {{-- ✅ Dean editing own profile: fixed to department-wide view --}}
+                <span class="text-xs text-gray-500">
+                    Showing all specializations under your department
+                    ({{ $user->department?->department_name ?? 'this department' }}).
+                </span>
+            @elseif ($user->course_id)
+                {{-- OLD behavior for other users: course-only vs all --}}
                 <button
                     type="button"
                     wire:click="$set('filterByCourse', true)"
@@ -68,7 +76,6 @@
                     View only {{ $courseName }} specializations
                 </button>
 
-                {{-- Button: view all --}}
                 <button
                     type="button"
                     wire:click="$set('filterByCourse', false)"
@@ -90,14 +97,18 @@
 
         {{-- State text --}}
         <p class="text-xs text-gray-500">
-            @if ($user->course_id)
+            @if ($isSelf)
+                Showing all specializations from your department
+                ({{ $user->department?->department_name ?? '—' }}). General specializations are also included.
+            @elseif ($user->course_id)
                 @if ($filterByCourse)
                     Showing <span class="font-semibold text-emerald-700">
-                    only specializations for {{ $courseName }}
+                        only specializations for {{ $courseName }}
                     </span>. All other courses are hidden.
                 @else
                     Showing <span class="font-semibold">all available specializations</span>.
-                    Click <span class="font-semibold">“View only {{ $courseName }} specializations”</span> to hide others.
+                    Click <span class="font-semibold">“View only {{ $courseName }} specializations”</span>
+                    to hide others.
                 @endif
             @else
                 Showing all available specializations.

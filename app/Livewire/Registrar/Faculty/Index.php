@@ -65,39 +65,6 @@ class Index extends Component
         $this->redirectRoute('registrar.faculty.create', navigate: true);
     }
 
-    public function edit(int $userId): void
-    {
-        $this->redirectRoute('registrar.faculty.create', ['userId' => $userId], navigate: true);
-    }
-
-    public function delete(int $userId): void
-    {
-        $user = User::findOrFail($userId);
-
-        // Optional: dili tugotan nga i-delete ang Registrar ug self
-        if ($user->role === User::ROLE_REGISTRAR) {
-            session()->flash('error', 'You cannot delete a Registrar account.');
-            return;
-        }
-
-        if (Auth::id() === $user->id) {
-            session()->flash('error', 'You cannot delete your own account.');
-            return;
-        }
-
-        try {
-            $user->delete(); // if SoftDeletes, soft-delete ra ni
-            session()->flash('ok', 'User deleted successfully.');
-        } catch (QueryException $e) {
-            session()->flash(
-                'error',
-                'User cannot be deleted because it is linked to other records (foreign key constraint).'
-            );
-        }
-
-        $this->resetPage();
-    }
-
     public function render()
     {
         $q = $this->getUsersQuery();

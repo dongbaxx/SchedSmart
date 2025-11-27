@@ -98,7 +98,6 @@
           <th class="px-4 py-2 hidden md:table-cell">Department</th>
           <th class="px-4 py-2 hidden lg:table-cell">Course</th>
           <th class="px-4 py-2 text-center">Emp. (Reg/Extra)</th>
-          <th class="px-4 py-2 text-right">Actions</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
@@ -142,25 +141,6 @@
               </span>
             </td>
 
-            <td class="px-4 py-3 text-right">
-              <div class="inline-flex items-center gap-1">
-                <button
-                  type="button"
-                  wire:click="edit({{ $u->id }})"
-                  class="rounded-md bg-white px-2 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50"
-                >
-                  Edit
-                </button>
-
-                <button
-                  type="button"
-                  onclick="if (confirm('Delete this user?')) { @this.delete({{ $u->id }}) }"
-                  class="rounded-md bg-white px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-red-200 hover:bg-red-50"
-                >
-                  Delete
-                </button>
-              </div>
-            </td>
           </tr>
         @empty
           <tr>
