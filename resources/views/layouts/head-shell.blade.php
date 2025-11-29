@@ -57,10 +57,15 @@
           'icon'    => 'M9 2a1 1 0 00-1 1v1H5a2 2 0 00-2 2v13a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2h-3V3a1 1 0 00-1-1H9zm0 0h6v4H9V2z',
         ],
         [
-          'label'   => 'Loads',
+          'label'   => 'OwnLoads',
           'route'   => 'head.loads',
           'pattern' => 'head.loads',
-          // Clipboard with lines icon
+         'icon'    => 'M4 4h16v4H4z M6 10h12v2H6z M8 14h8v2H8z',
+        ],
+        [
+          'label'   => 'UsersLoads',
+          'route'   => 'head.usersloads',
+          'pattern' => 'head.usersloads',
          'icon'    => 'M4 4h16v4H4z M6 10h12v2H6z M8 14h8v2H8z',
         ],
       ];

@@ -30,11 +30,13 @@ use App\Livewire\Head\Offerings\History as  HOhistory;
 use App\Livewire\Head\Offerings\BlkGenerate;
 use App\Livewire\Head\Schedulings;
 use App\Livewire\Head\Loads;
+use App\Livewire\Head\UsersLoads;
 
 use App\Livewire\Dean\People;
 use App\Livewire\Dean\Special;
 use App\Livewire\Dean\Offers;
 use App\Livewire\Dean\Load;
+use App\Livewire\Dean\Depworkloads;
 
 
 use App\Models\User;
@@ -143,6 +145,7 @@ Route::middleware(['auth','role:Dean'])->group(function () {
 
 
         Route::get('/load',                                  Load::class)->name('load');
+        Route::get('/depworkloads',                                  Depworkloads::class)->name('depworkloads');
 
     });
 
@@ -154,6 +157,7 @@ Route::middleware(['auth','role:Head'])->group(function () {
     Route::get('/dashboard',                              HeadDashboard::class)->name('dashboard');
 
     Route::get('/loads',                                  Loads::class)->name('loads');
+    Route::get('/usersloads',                             UsersLoads::class)->name('usersloads');
 
     Route::get('/faculties',                              Faculties\Index::class)->name('faculties.index');
     Route::get('/faculties/add',                          Faculties\Create::class)->name('faculties.create');
