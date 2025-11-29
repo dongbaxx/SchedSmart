@@ -387,10 +387,31 @@ body { background-color: #fbfaf8 !important; }
 
           </div>
       </div>
-  @empty
+    @empty
+      @php
+          // Build a readable label for the selected academic term, if any
+          $academicLabel = null;
+
+          if ($currentTerm) {
+              $sem = strtolower((string) $currentTerm->semester);
+              $semLabel = in_array($sem, ['1', '1st', 'first']) ? '1st Semester'
+                        : (in_array($sem, ['2', '2nd', 'second']) ? '2nd Semester'
+                        : ((str_contains($sem, 'mid') || $sem === '3' || str_contains($sem, 'summer'))
+                                ? 'Midyear / Summer'
+                                : ucwords($currentTerm->semester)));
+
+              $academicLabel = trim($currentTerm->school_year . ' — ' . $semLabel);
+          }
+      @endphp
+
       <div class="text-gray-500">
-          Walay na-generate nga meetings sa napiling filter(s)
-          @if($academicId) sa Academic ID <span class="font-semibold">{{ $academicId }}</span> @endif.
+          No meetings were generated for the selected filter(s)
+          @if($academicLabel)
+              for Academic Term <span class="font-semibold">{{ $academicLabel }}</span>.
+          @else
+              .
+          @endif
       </div>
   @endforelse
+
 </div>

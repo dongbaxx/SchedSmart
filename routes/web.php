@@ -26,7 +26,6 @@ use App\Livewire\Registrar\Academic;
 use App\Livewire\Head\Faculties;
 use App\Livewire\Head\Spec;
 use App\Livewire\Head\Offerings\Index as HOindex;
-use App\Livewire\Head\Offerings\Edit as  HOedit;
 use App\Livewire\Head\Offerings\History as  HOhistory;
 use App\Livewire\Head\Offerings\BlkGenerate;
 use App\Livewire\Head\Schedulings;
@@ -168,7 +167,6 @@ Route::middleware(['auth','role:Head'])->group(function () {
 
      //Course Offering
     Route::get('/offerings',                              HOindex::class)->name('offerings.index');
-    Route::get('/offerings/{offering}/edit',              HOedit::class)->name('offerings.edit');
     Route::get('/history',                                HOhistory::class)->name('offerings.history');
 
     Route::get('/offerings/blk-generate',                 BlkGenerate\Wizards::class)->name('offerings.wizards');

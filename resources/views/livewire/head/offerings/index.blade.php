@@ -3,16 +3,15 @@
         <h1 class="text-xl font-semibold">My Course Offerings</h1>
         <div class="flex gap-2">
             <a href="{{ route('head.offerings.history') }}"
-            class="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+               class="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
                 History
             </a>
             <a href="{{ route('head.offerings.wizards') }}"
-            class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+               class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
                 Bulk Generate
             </a>
         </div>
     </div>
-
 
     @if(session('offerings_success'))
         <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded">
@@ -72,12 +71,6 @@
                         </span>
                     </td>
                     <td class="px-3 py-2 text-center space-x-2">
-                        {{-- Edit disabled if locked --}}
-                        <a href="{{ route('head.offerings.edit',$r) }}"
-                           class="px-2 py-1 border rounded text-sm
-                                  {{ $r->status==='locked' ? 'pointer-events-none opacity-40' : 'border-blue-500 text-blue-600 hover:bg-blue-50' }}">
-                            Edit
-                        </a>
                         {{-- Schedule only visible if locked --}}
                         @if($r->status==='locked')
                             <a href="{{ route('head.schedulings.editor',$r) }}"
@@ -87,6 +80,7 @@
                         @else
                             <span class="px-2 py-1 border border-gray-300 text-gray-400 rounded text-sm">Schedule</span>
                         @endif
+
                         {{-- Delete disabled if locked --}}
                         <button wire:click="delete({{ $r->id }})"
                                 class="px-2 py-1 border rounded text-sm

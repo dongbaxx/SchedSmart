@@ -27,11 +27,6 @@ class Index extends Component
         'echo:offerings,OfferingCreated' => '$refresh',
     ];
 
-    public function updating($name, $value): void
-    {
-        $this->resetPage();
-    }
-
     public function delete(int $id): void
     {
         $offering = CourseOffering::findOrFail($id);
