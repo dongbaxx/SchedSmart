@@ -95,7 +95,13 @@
                                     {{ $f?->name ?? '—' }}
                                 @endif
                             </td>
-                            <td class="px-3 py-2 align-top">{{ $r?->code ?? '—' }}</td>
+                            <td class="px-3 py-2 align-top">
+                                @if($row['field'] ?? false)
+                                    Field
+                                @else
+                                    {{ $r?->code ?? '—' }}
+                                @endif
+                            </td>
                             <td class="px-3 py-2 align-top">
                                 {{ $row['day'] ?? '—' }}
                                 @if(!empty($row['day']) && str_contains($row['day'], '/'))
@@ -153,6 +159,14 @@
                         $notGenerated = !$alreadyGenerated;
                     @endphp
 
+                    {{-- NEW: Edit Time & Room (separate page) --}}
+                    @if($alreadyGenerated)
+                        <a href="{{ route('head.schedulings.edit', $offering) }}"
+                           class="px-3 py-2 rounded-lg border text-sm hover:bg-gray-50">
+                            Edit Time &amp; Room
+                        </a>
+                    @endif
+
                     {{-- INCOMPLETE: View + Regenerate + Cancel (hide Generate) --}}
                     @if($isIncomplete)
                         <button type="button"
@@ -195,7 +209,7 @@
                         </button>
                     @endif
 
-                    {{-- COMPLETE: keep single disabled “Generated” --}}
+                    {{-- COMPLETE: single disabled “Generated” --}}
                     @if($isComplete)
                         <button type="button"
                                 disabled

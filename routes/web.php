@@ -28,7 +28,8 @@ use App\Livewire\Head\Spec;
 use App\Livewire\Head\Offerings\Index as HOindex;
 use App\Livewire\Head\Offerings\History as  HOhistory;
 use App\Livewire\Head\Offerings\BlkGenerate;
-use App\Livewire\Head\Schedulings;
+use App\Livewire\Head\Schedulings\Editor;
+use App\Livewire\Head\Schedulings\Edit;
 use App\Livewire\Head\Loads;
 use App\Livewire\Head\UsersLoads;
 
@@ -174,7 +175,8 @@ Route::middleware(['auth','role:Head'])->group(function () {
     Route::get('/history',                                HOhistory::class)->name('offerings.history');
 
     Route::get('/offerings/blk-generate',                 BlkGenerate\Wizards::class)->name('offerings.wizards');
-    Route::get('schedulings/{offering}',                  Schedulings\Editor::class)->name('schedulings.editor');
+    Route::get('schedulings/{offering}',                  Editor::class)->name('schedulings.editor');
+    Route::get('schedulings/{offering}/edit',             Edit::class)->name('schedulings.edit');
 
 
 
