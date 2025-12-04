@@ -51,7 +51,7 @@
                         <th class="px-3 py-2 text-left">Day</th>
                         <th class="px-3 py-2 text-left">Start</th>
                         <th class="px-3 py-2 text-left">End</th>
-                        <th class="px-3 py-2 text-left">Room / Field</th>
+                        <th class="px-3 py-2 text-left">Room</th>
                     </tr>
                     </thead>
                     <tbody class="divide-y">
@@ -113,24 +113,16 @@
                                 @enderror
                             </td>
 
-                            {{-- Room + Field --}}
+                            {{-- Room --}}
                             <td class="px-3 py-2 align-top">
                                 <div class="flex flex-col gap-1">
                                     <select wire:model="rows.{{ $i }}.room_id"
-                                            class="border-gray-300 rounded-md text-xs"
-                                            @if($row['field']) disabled @endif>
+                                            class="border-gray-300 rounded-md text-xs">
                                         <option value="">—</option>
                                         @foreach($rooms as $room)
                                             <option value="{{ $room->id }}">{{ $room->code }}</option>
                                         @endforeach
                                     </select>
-
-                                    <label class="inline-flex items-center gap-1 text-[11px] text-gray-600 mt-1">
-                                        <input type="checkbox"
-                                               wire:model="rows.{{ $i }}.field"
-                                               class="rounded border-gray-300">
-                                        <span>Field (no classroom)</span>
-                                    </label>
 
                                     @error("rows.$i.room_id")
                                         <div class="text-xs text-red-600 mt-0.5">{{ $message }}</div>
