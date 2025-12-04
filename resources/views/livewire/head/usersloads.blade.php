@@ -1,5 +1,3 @@
-{{-- resources/views/livewire/head/users-loads.blade.php --}}
-
 {{-- ===================== PRINT & SCREEN STYLES ===================== --}}
 <style>
 @media print {
@@ -84,7 +82,7 @@
   }
 
   .table {
-    width:90%!important;
+    width:90%!important; /* print lang nato ipabilin 90% para naay margin sa papel */
     border-collapse:collapse!important;
     background:#ffffff!important;
     margin:0 auto;
@@ -119,56 +117,57 @@
 }
 
 /* ===================== SCREEN STYLES ===================== */
-body { background-color:#fbfaf8!important; }
 
-.print-root, main, .p-6 {
+/* i-stretch ang default app container para ani nga page */
+main .max-w-7xl,
+main .mx-auto,
+main .sm\:px-6,
+main .lg\:px-8 {
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* background sa app */
+body {
   background-color:#fbfaf8!important;
-  box-shadow:0 2px 8px rgba(0,0,0,0.04);
-  padding:20px;
 }
 
-.header-image {
-  text-align:center;
-  margin-bottom:6px;
+/* main area */
+main {
+  background-color:#fbfaf8!important;
 }
 
-.header-image img {
-  height:85px;
-  object-fit:contain;
-  margin:0 auto;
-  display:inline-block;
+/* root container sa Faculty Loads – full width */
+.print-root {
+  width:100% !important;
+  max-width:100% !important;
+  margin:0 !important;
+  padding:0 16px 24px 16px !important; /* gamay lang nga side padding */
 }
 
-.meta-info {
-  width:100%;
-  margin:6px 0 6px;
-  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size:14px;
+/* page wrapper – dili na mag-limit sa width */
+.page {
+  width:100% !important;
+  margin:0 auto !important;
 }
 
-.meta-row {
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:2px;
+.page-inner {
+  width:100% !important;
+  margin:0 auto !important;
 }
 
-/* bring meta info a bit inward */
-.meta-row .left  { padding-left:2.5in; }
-.meta-row .right { padding-right:2.5in; text-align:left; }
-
-.h-title {
-  font-size:28px;
-  font-weight:700;
-  text-align:center;
-  margin:6px 0 10px;
-}
-
+/* TABLE – full width, walay margin auto */
 .table {
-  width:90%;
+  width:90% !important;
   border-collapse:collapse;
   background-color:#ffffff;
+  margin:0 !important;
 }
 
+/* table cells */
 .table th, .table td {
   border:1px solid #1f2937;
   padding:6px 10px;
@@ -195,6 +194,46 @@ body { background-color:#fbfaf8!important; }
   text-align:center;
 }
 
+/* header image */
+.header-image {
+  text-align:center;
+  margin-bottom:6px;
+}
+
+.header-image img {
+  height:85px;
+  object-fit:contain;
+  margin:0 auto;
+  display:inline-block;
+}
+
+/* meta info */
+.meta-info {
+  width:100%;
+  margin:6px 0 6px;
+  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size:14px;
+}
+
+.meta-row {
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:2px;
+}
+
+/* bring meta info a bit inward */
+.meta-row .left  { padding-left:2.5in; }
+.meta-row .right { padding-right:2.5in; text-align:left; }
+
+/* title */
+.h-title {
+  font-size:28px;
+  font-weight:700;
+  text-align:center;
+  margin:6px 0 10px;
+}
+
+/* monospace helper */
 .mono {
   font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
@@ -214,8 +253,7 @@ body { background-color:#fbfaf8!important; }
     /** @var int|null $academicId */
     /** @var \Illuminate\Support\Collection<int,\App\Models\AcademicYear> $terms */
     /** @var \App\Models\AcademicYear|null $currentTerm */
-    // If the component already passes $terms/$activeId/$currentTerm, we just trust them.
-    // Fallback if not passed (safe guard):
+
     if (!isset($terms)) {
         $terms = \App\Models\AcademicYear::orderByDesc('id')->get();
     }
@@ -227,7 +265,7 @@ body { background-color:#fbfaf8!important; }
     }
 @endphp
 
-<div class="print-root p-6 space-y-6">
+<div class="print-root space-y-6">
 
   {{-- History banner --}}
   @if(!app('request')->isMethod('post') && ($showHistory ?? false))
@@ -255,7 +293,7 @@ body { background-color:#fbfaf8!important; }
     </div>
   @endif
 
-  {{-- ===================== Filter form (History + Academic Term + Faculty) ===================== --}}
+  {{-- ===================== Filter form ===================== --}}
   <form method="GET" action="{{ url()->current() }}" class="flex flex-wrap items-end gap-3 print:hidden">
       <div class="flex items-center gap-2">
           <input type="checkbox"
@@ -350,7 +388,7 @@ body { background-color:#fbfaf8!important; }
                       <strong>{{ $sheet['faculty_short'] ?? $sheet['faculty'] ?? '—' }}</strong>
                   </div>
                   <div class="right">
-                      {{-- Optional: Program / Course name if you want --}}
+                      {{-- Optional: Program / Course name --}}
                   </div>
                 </div>
               </div>
@@ -398,7 +436,6 @@ body { background-color:#fbfaf8!important; }
       </div>
   @empty
     @php
-        // Build a readable semester label from $currentTerm
         $noSemLabel = '—';
         if (isset($currentTerm) && $currentTerm) {
             $sem = strtolower((string) $currentTerm->semester);
@@ -414,7 +451,5 @@ body { background-color:#fbfaf8!important; }
             ({{ $currentTerm->school_year }} — {{ $noSemLabel }})
         @endif
     </div>
-@endforelse
-</div>
-
+  @endforelse
 </div>

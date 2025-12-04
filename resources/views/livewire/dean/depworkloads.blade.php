@@ -1,4 +1,3 @@
-{{-- resources/views/livewire/dean/depworkloads.blade.php --}}
 
 {{-- ===================== PRINT & SCREEN STYLES ===================== --}}
 <style>
