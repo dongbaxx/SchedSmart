@@ -50,6 +50,13 @@
           'icon'    => 'M12 14l9-5-9-5-9 5 9 5zm0 0v6m0 0a9 9 0 01-9-9m9 9a9 9 0 009-9',
         ],
         [
+          'label'   => 'Curricula',
+          'route'   => 'head.subjects.index',
+          'pattern' => 'head.subjects*',
+          // Academic cap
+          'icon'    => 'M7 2a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V8l-6-6H7zM13 3.5V9h5.5',
+        ],
+        [
           'label'   => 'Offerings',
           'route'   => 'head.offerings.index',
           'pattern' => 'head.offerings*',
@@ -63,7 +70,7 @@
          'icon'    => 'M4 4h16v4H4z M6 10h12v2H6z M8 14h8v2H8z',
         ],
         [
-          'label'   => 'UsersLoads',
+          'label'   => 'Faculties-Loads',
           'route'   => 'head.usersloads',
           'pattern' => 'head.usersloads',
          'icon'    => 'M4 4h16v4H4z M6 10h12v2H6z M8 14h8v2H8z',

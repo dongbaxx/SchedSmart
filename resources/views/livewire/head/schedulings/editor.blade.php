@@ -1,13 +1,18 @@
+@php
+    use Illuminate\Support\Str;
+@endphp
+
 <div class="space-y-6">
-    {{-- Header --}}
+
+    {{-- HEADER --}}
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-xl font-semibold">Course Offering — Planner</h1>
+            <h1 class="text-xl font-semibold">Edit Time &amp; Room</h1>
             <p class="text-xs text-gray-500">
-                Section: <b>{{ $offering->section?->section_name ?? '—' }}</b>
+                Section: <b>{{ data_get($offering,'section.section_name','—') }}</b>
                 • Year Level: <b>{{ $offering->year_level ?? '—' }}</b>
-                • A.Y.: <b>{{ $offering->academic?->school_year ?? '—' }}</b>
-                • Semester: <b>{{ $offering->academic?->semester ?? '—' }}</b>
+                • A.Y.: <b>{{ data_get($offering,'academic.school_year','—') }}</b>
+                • Semester: <b>{{ data_get($offering,'academic.semester','—') }}</b>
             </p>
         </div>
 
@@ -21,39 +26,63 @@
         </button>
     </div>
 
-    {{-- Flash --}}
+    {{-- ALERTS --}}
     @if(session('success'))
         <div class="rounded-lg bg-green-50 border border-green-200 text-green-800 px-3 py-2 text-sm">
             {{ session('success') }}
         </div>
     @endif
+
     @if(session('offerings_warning'))
         <div class="rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 text-sm">
             {{ session('offerings_warning') }}
         </div>
     @endif
 
-    {{-- Single Planner Table (no other tables) --}}
+    {{-- SUBJECT TABLE --}}
     <div class="rounded-xl border p-4 space-y-3">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold">
-                Subjects ({{ $offering->year_level ?? '—' }})
-                <span class="ml-2 text-xs text-gray-500">({{ !empty($plan) ? count($plan) : 0 }} total)</span>
+                Subjects
+                <span class="ml-2 text-xs text-gray-500">({{ count($plan ?? []) }} total)</span>
             </h2>
+
+            <div class="flex items-center gap-2">
+                @if(!$alreadyGenerated)
+                    <button wire:click="generate"
+                            wire:loading.attr="disabled"
+                            wire:target="generate"
+                            class="px-3 py-2 rounded-lg text-sm bg-indigo-600 text-white hover:bg-indigo-700">
+                        <span wire:loading.remove wire:target="generate">Generate</span>
+                        <span wire:loading wire:target="generate">Generating…</span>
+                    </button>
+                @else
+                    <button wire:click="regenerateSection"
+                            wire:loading.attr="disabled"
+                            wire:target="regenerateSection"
+                            class="px-3 py-2 rounded-lg border text-sm hover:bg-gray-50">
+                        Regenerate
+                    </button>
+
+                    <button wire:click="cancelSection"
+                            wire:loading.attr="disabled"
+                            wire:target="cancelSection"
+                            class="px-3 py-2 rounded-lg border text-sm hover:bg-gray-50">
+                        Cancel
+                    </button>
+                @endif
+            </div>
         </div>
 
         @if(!$planLoaded)
-            <p class="text-sm text-gray-500">Loading subjects…</p>
+            <p class="text-sm text-gray-500">Loading…</p>
         @elseif(empty($plan))
-            <p class="text-sm text-gray-500">No suggested subjects found for this section.</p>
+            <p class="text-sm text-gray-500">No subjects found.</p>
         @else
-            @php
-                $hasAnyInc = collect($plan)->where('inc', true)->isNotEmpty();
-            @endphp
 
-            <div class="overflow-x-auto border rounded-xl">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-gray-50">
+        <div class="overflow-x-auto border rounded-xl">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-50">
                     <tr>
                         <th class="px-3 py-2 text-left">Subject</th>
                         <th class="px-3 py-2 text-left">Type</th>
@@ -63,164 +92,86 @@
                         <th class="px-3 py-2 text-left">Day(s)</th>
                         <th class="px-3 py-2 text-left">Start</th>
                         <th class="px-3 py-2 text-left">End</th>
-                        @if($hasAnyInc)
-                            <th class="px-3 py-2 text-left w-64">Why?</th>
-                        @endif
                     </tr>
-                    </thead>
-                    <tbody class="divide-y">
-                    @foreach($plan as $i => $row)
-                        @php
-                            $f = ($row['faculty_id'] ?? null) ? $faculty->firstWhere('id',$row['faculty_id']) : null;
-                            $r = ($row['room_id'] ?? null) ? $rooms->firstWhere('id',$row['room_id']) : null;
-                        @endphp
-                        <tr wire:key="plan-row-{{ $row['curriculum_id'] }}-{{ $i }}">
-                            <td class="px-3 py-2 align-top">
-                                <div class="font-medium flex items-center gap-2">
-                                    <span>{{ $row['code'] }} — {{ $row['title'] }}</span>
-                                    @if($row['inc'])
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">INC</span>
-                                    @endif
-                                </div>
-                                <div class="text-xs text-gray-500">
-                                    Spec: {{ $row['specialization'] ?? '—' }} • Room Type: {{ $row['room_type_label'] ?? '—' }}
-                                </div>
-                            </td>
-                            <td class="px-3 py-2 align-top">{{ $row['type'] ?? '—' }}</td>
-                            <td class="px-3 py-2 align-top">{{ $row['units'] ?? '—' }}</td>
-                            <td class="px-3 py-2 align-top">
-                                @if($row['inc'])
-                                    <span class="text-gray-400">—</span>
-                                @else
-                                    {{ $f?->name ?? '—' }}
-                                @endif
-                            </td>
-                            <td class="px-3 py-2 align-top">
-                                @if($row['field'] ?? false)
-                                    Field
-                                @else
-                                    {{ $r?->code ?? '—' }}
-                                @endif
-                            </td>
-                            <td class="px-3 py-2 align-top">
-                                {{ $row['day'] ?? '—' }}
-                                @if(!empty($row['day']) && str_contains($row['day'], '/'))
-                                    <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">pair</span>
-                                @endif
-                            </td>
-                            <td class="px-3 py-2 align-top">{{ $row['start_time'] ?? '—' }}</td>
-                            <td class="px-3 py-2 align-top">{{ $row['end_time'] ?? '—' }}</td>
+                </thead>
 
-                            @if($hasAnyInc)
-                                <td class="px-3 py-2 align-top">
-                                    @if($row['inc'])
-                                        <div class="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
-                                            {{ $row['inc_reason'] ?? 'No eligible faculty' }}
-                                        </div>
-                                    @else
-                                        <span class="text-gray-300 text-xs">—</span>
-                                    @endif
-                                </td>
-                            @endif
-                        </tr>
-                    @endforeach
-                    </tbody>
-                    <tfoot>
-                        <tr class="border-t bg-gray-50">
-                            <td class="px-3 py-2 text-right text-xs text-gray-500" colspan="2"><b>Total Units:</b></td>
-                            <td class="px-3 py-2 text-sm"><b>{{ $totalUnits }}</b></td>
-                            <td class="px-3 py-2" colspan="{{ $hasAnyInc ? 6 : 5 }}"></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-
-            {{-- Footer actions & status --}}
-            <div class="flex items-center justify-between pt-2">
-                <p class="text-xs text-gray-500">
-                    Even without rooms, the planner assigns instructors, days, and time. Heads get a one-time admin load; faculty loads are saved per subject/section/term.
-                    @if($alreadyGenerated)
-                        @if($hasUnassigned)
-                            <span class="ml-2 inline-flex items-center text-[11px] px-2 py-0.5 rounded bg-yellow-100 text-yellow-800">
-                                Incomplete: {{ $incompleteCount }}
-                            </span>
-                        @else
-                            <span class="ml-2 inline-flex items-center text-[11px] px-2 py-0.5 rounded bg-green-100 text-green-800">
-                                Complete
-                            </span>
-                        @endif
-                    @endif
-                </p>
-
-                <div class="flex items-center gap-2">
+                <tbody class="divide-y">
+                @foreach($plan as $i => $row)
                     @php
-                        $isIncomplete = $alreadyGenerated && $hasUnassigned;
-                        $isComplete   = $alreadyGenerated && !$hasUnassigned;
-                        $notGenerated = !$alreadyGenerated;
+                        $fid = $row['faculty_id'] ?? null;
+                        $rid = $row['room_id'] ?? null;
+
+                        $f = $fid ? $faculty->firstWhere('id', $fid) : null;
+                        $r = $rid ? $rooms->firstWhere('id', $rid) : null;
+
+                        // ✅ INC RULE: walay faculty = INC
+                        $isInc = empty($fid);
+
+                        $dayStr = (string)($row['day'] ?? '');
+                        $isPair = $dayStr && Str::contains($dayStr, '/');
                     @endphp
 
-                    {{-- NEW: Edit Time & Room (separate page) --}}
-                    @if($alreadyGenerated)
-                        <a href="{{ route('head.schedulings.edit', $offering) }}"
-                           class="px-3 py-2 rounded-lg border text-sm hover:bg-gray-50">
-                            Edit Time &amp; Room
-                        </a>
-                    @endif
+                    <tr wire:key="row-{{ $row['curriculum_id'] ?? $i }}">
+                        {{-- SUBJECT --}}
+                        <td class="px-3 py-2 align-top">
+                            <div class="font-medium">
+                                {{ $row['code'] ?? '—' }} — {{ $row['title'] ?? '—' }}
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                Spec: {{ $row['specialization'] ?? '—' }}
+                                • Room Type: {{ $row['type'] ?? '—' }}
+                            </div>
+                        </td>
 
-                    {{-- INCOMPLETE: View + Regenerate + Cancel (hide Generate) --}}
-                    @if($isIncomplete)
-                        <button type="button"
-                                wire:click="viewSection"
-                                wire:loading.attr="disabled"
-                                wire:target="viewSection"
-                                class="px-3 py-2 rounded-lg border text-sm hover:bg-gray-50">
-                            <span wire:loading.remove wire:target="viewSection">View</span>
-                            <span wire:loading wire:target="viewSection">Opening…</span>
-                        </button>
+                        {{-- TYPE --}}
+                        <td class="px-3 py-2 align-top">{{ $row['type'] ?? '—' }}</td>
 
-                        <button type="button"
-                                wire:click="regenerateSection"
-                                wire:loading.attr="disabled"
-                                wire:target="regenerateSection"
-                                class="px-3 py-2 rounded-lg border text-sm hover:bg-gray-50">
-                            <span wire:loading.remove wire:target="regenerateSection">Regenerate</span>
-                            <span wire:loading wire:target="regenerateSection">Regenerating…</span>
-                        </button>
+                        {{-- UNITS --}}
+                        <td class="px-3 py-2 align-top">{{ $row['units'] ?? '—' }}</td>
 
-                        <button type="button"
-                                wire:click="cancelSection"
-                                wire:loading.attr="disabled"
-                                wire:target="cancelSection"
-                                class="px-3 py-2 rounded-lg border text-sm hover:bg-gray-50">
-                            <span wire:loading.remove wire:target="cancelSection">Cancel</span>
-                            <span wire:loading wire:target="cancelSection">Cancelling…</span>
-                        </button>
-                    @endif
+                        {{-- FACULTY (INC HERE ONLY) --}}
+                        <td class="px-3 py-2 align-top">
+                            @if($isInc)
+                                <span class="text-red-600 font-semibold">INC</span>
+                            @else
+                                {{ $f?->name ?? '—' }}
+                            @endif
+                        </td>
 
-                    {{-- NOT GENERATED: show Generate --}}
-                    @if($notGenerated)
-                        <button type="button"
-                                wire:click="generate"
-                                wire:loading.attr="disabled"
-                                wire:target="generate"
-                                class="px-3 py-2 rounded-lg text-sm bg-indigo-600 text-white hover:bg-indigo-700">
-                            <span wire:loading.remove wire:target="generate">Generate</span>
-                            <span wire:loading wire:target="generate">Generating…</span>
-                        </button>
-                    @endif
+                        {{-- ROOM --}}
+                        <td class="px-3 py-2 align-top">{{ $r?->code ?? '—' }}</td>
 
-                    {{-- COMPLETE: single disabled “Generated” --}}
-                    @if($isComplete)
-                        <button type="button"
-                                disabled
-                                class="px-3 py-2 rounded-lg text-sm bg-gray-200 text-gray-500 cursor-not-allowed">
-                            Generated
-                        </button>
-                    @endif
-                </div>
-            </div>
+                        {{-- DAY --}}
+                        <td class="px-3 py-2 align-top">
+                            {{ $row['day'] ?? '—' }}
+                            @if($isPair)
+                                <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">pair</span>
+                            @endif
+                        </td>
+
+                        {{-- START --}}
+                        <td class="px-3 py-2 align-top">{{ $row['start_time'] ?? '—' }}</td>
+
+                        {{-- END --}}
+                        <td class="px-3 py-2 align-top">{{ $row['end_time'] ?? '—' }}</td>
+                    </tr>
+                @endforeach
+                </tbody>
+
+                <tfoot>
+                    <tr class="border-t bg-gray-50">
+                        <td colspan="2" class="px-3 py-2 text-right text-xs text-gray-500"><b>Total Units:</b></td>
+                        <td class="px-3 py-2 text-sm"><b>{{ $totalUnits }}</b></td>
+                        <td colspan="5"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
         @endif
     </div>
 
-    <p class="text-[11px] text-gray-400 text-center">© {{ date('Y') }} SchedSmart. All rights reserved.</p>
+    <p class="text-[11px] text-gray-400 text-center">
+        © {{ date('Y') }} SchedSmart. All rights reserved.
+    </p>
 </div>

@@ -32,6 +32,7 @@ use App\Livewire\Head\Schedulings\Editor;
 use App\Livewire\Head\Schedulings\Edit;
 use App\Livewire\Head\Loads;
 use App\Livewire\Head\UsersLoads;
+use App\Livewire\Head\Subjects;
 
 use App\Livewire\Dean\People;
 use App\Livewire\Dean\Special;
@@ -156,6 +157,11 @@ Route::middleware(['auth','role:Head'])->group(function () {
     Route::prefix('head')->name('head.')->group(function () {
 
     Route::get('/dashboard',                              HeadDashboard::class)->name('dashboard');
+
+    Route::get('/subjects',                              Subjects\Index::class)->name('subjects.index');
+    Route::get('/subjects/add',                          Subjects\Form::class)->name('subjects.form');
+    Route::get('/subjects/{curriculum}/edit',            Subjects\Edit::class)->name('subjects.edit');
+
 
     Route::get('/loads',                                  Loads::class)->name('loads');
     Route::get('/usersloads',                             UsersLoads::class)->name('usersloads');

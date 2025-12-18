@@ -174,7 +174,7 @@
         <div class="mb-4">
           <h2 class="text-base font-semibold text-gray-900">Availability (Part-Time)</h2>
           <p class="text-sm text-gray-500">
-            Pili ug adlaw (Mon–Fri) ug butang ang oras per day. Inputs are 24-hour time (HH:MM).
+            Pili ug adlaw (Mon–Fri) ug pili-a ang GRID time per day (exact schedulable slots).
           </p>
         </div>
 
@@ -184,36 +184,46 @@
               <tr>
                 <th class="text-left border-b p-2">Day</th>
                 <th class="text-left border-b p-2">Available?</th>
-                <th class="text-left border-b p-2">Start (HH:MM)</th>
-                <th class="text-left border-b p-2">End (HH:MM)</th>
+                <th class="text-left border-b p-2">Start</th>
+                <th class="text-left border-b p-2">End</th>
               </tr>
             </thead>
             <tbody>
               @foreach ($days as $day)
                 <tr class="border-b align-top">
                   <td class="p-2 font-medium">{{ $day }}</td>
+
                   <td class="p-2">
                     <input type="checkbox"
                            wire:model.live="dayEnabled.{{ $day }}"
                            class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
                   </td>
+
                   <td class="p-2">
-                    <input type="time"
-                           wire:model.defer="dayStart.{{ $day }}"
-                           @disabled(!($dayEnabled[$day] ?? false))
-                           class="w-36 rounded border border-gray-300 px-2 py-1 focus:ring-2 focus:ring-emerald-500">
+                    <select wire:model.defer="dayStart.{{ $day }}"
+                            @disabled(!($dayEnabled[$day] ?? false))
+                            class="w-36 rounded border border-gray-300 px-2 py-1 focus:ring-2 focus:ring-emerald-500">
+                      @foreach($gridStartOptions as $t)
+                        <option value="{{ $t }}">{{ $t }}</option>
+                      @endforeach
+                    </select>
                     @error("dayStart.$day") <div class="mt-1 text-xs text-red-600">{{ $message }}</div> @enderror
                   </td>
+
                   <td class="p-2">
-                    <input type="time"
-                           wire:model.defer="dayEnd.{{ $day }}"
-                           @disabled(!($dayEnabled[$day] ?? false))
-                           class="w-36 rounded border border-gray-300 px-2 py-1 focus:ring-2 focus:ring-emerald-500">
+                    <select wire:model.defer="dayEnd.{{ $day }}"
+                            @disabled(!($dayEnabled[$day] ?? false))
+                            class="w-36 rounded border border-gray-300 px-2 py-1 focus:ring-2 focus:ring-emerald-500">
+                      @foreach($gridEndOptions as $t)
+                        <option value="{{ $t }}">{{ $t }}</option>
+                      @endforeach
+                    </select>
+
                     @error("dayEnd.$day") <div class="mt-1 text-xs text-red-600">{{ $message }}</div> @enderror
 
                     @if ($day === 'FRI')
                       <div class="text-xs text-amber-600 mt-1">
-                        Friday requires at least 3 hours (e.g., 13:00–16:00, 14:30–17:30, 16:00–19:00, or 17:30–20:30).
+                        Friday must be EXACTLY one of: 13:00–16:00, 14:30–17:30, 16:00–19:00, 17:30–20:30.
                       </div>
                     @endif
                   </td>
@@ -228,6 +238,7 @@
                   class="rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm hover:bg-emerald-700">
             Save Availability
           </button>
+
           @if (session('success_availability'))
             <div class="mt-2 rounded-lg bg-emerald-50 text-emerald-800 px-3 py-2 text-sm border border-emerald-200">
               {{ session('success_availability') }}
