@@ -3,164 +3,78 @@
 namespace App\Livewire\Head\Faculties;
 
 use Livewire\Component;
-use Livewire\Attributes\Title;
 use Livewire\Attributes\Layout;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
-use App\Models\{
-    User,
-    Department,
-    UsersDepartment,
-    UsersEmployment,
-    FacultyAvailability,
-    TimeSlot
-};
+use Livewire\Attributes\Title;
 
-#[Title('Manage Faculty Attributes')]
+use App\Models\User;
+use App\Models\UsersEmployment;
+use App\Models\FacultyAvailability;
+use App\Models\TimeSlot;
+
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
+
+#[Title('Manage Faculty')]
 #[Layout('layouts.head-shell')]
 class Manage extends Component
 {
-    public User $user; // the faculty being managed
+    // keep user id as scalar to avoid Livewire hydration issues
+    public int $userId;
+    public ?User $user = null;
 
-    // users_department
-    public ?string $user_code_id = null;
-    public ?string $position = null;        // 'Faculty' | 'Head'
-    public ?int $dept_department_id = null; // LOCKED read-only in UI
+    // Employment (users_employments)
+    public $employment_classification = 'Teaching';
+    public $employment_status = 'Part-Time'; // Full-Time | Part-Time
+    public $regular_load = 0;
+    public $extra_load = 0;
 
-    // users_employments
-    public ?string $employment_classification = null; // Teaching
-    public ?string $employment_status = null;         // Full-Time | Part-Time
-    public ?int $regular_load = null;
-    public ?int $extra_load = null;
-
-    public bool $readOnlyOrg = true;
-
-    /** Part-time availability editor (Mon–Fri only) */
-    public array $days = ['MON','TUE','WED','THU','FRI'];
-
-    /** Day toggles */
+    // Availability (Part-Time only)
     public array $dayEnabled = [];
-
-    /** Start/End per day: HH:MM */
     public array $dayStart = [];
-    public array $dayEnd   = [];
+    public array $dayEnd = [];
 
-    /** OPTIONS shown in UI (GRID ONLY) */
+    // UI helpers
+    public array $days = ['MON','TUE','WED','THU','FRI'];
     public array $gridStartOptions = [];
-    public array $gridEndOptions   = [];
+    public array $gridEndOptions = [];
 
-    /** ── GRID WINDOWS USED BY THE SCHEDULER ─────────────── */
-    private array $gridStarts = ['07:30','09:00','10:30','13:00','14:30','16:00','17:30','19:00'];
-    private array $gridEnds   = ['09:00','10:30','12:00','14:30','16:00','17:30','19:00','20:30'];
+    public function mount(User $user)
+    {
+        $this->userId = (int) $user->id;
 
-    /** valid 3h windows — used for FRI rule */
-    private array $gridWindows3h = [
-        ['13:00','16:00'],
-        ['14:30','17:30'],
-        ['16:00','19:00'],
-        ['17:30','20:30'],
-    ];
+        $this->user = User::with(['department','course','userDepartment'])
+            ->findOrFail($this->userId);
 
-    /** PT hard end limit */
-    private string $PT_END_LIMIT = '21:00:00';
+        // time options (30-min grid)
+        $this->gridStartOptions = $this->makeTimeGrid('07:00', '20:00', 30);
+        $this->gridEndOptions   = $this->makeTimeGrid('07:30', '20:30', 30);
+
+        // defaults
+        foreach ($this->days as $d) {
+            $this->dayEnabled[$d] = false;
+            $this->dayStart[$d]   = '07:30';
+            $this->dayEnd[$d]     = '12:00';
+        }
+
+        // load employment row directly from UsersEmployment model
+        $emp = UsersEmployment::where('user_id', $this->userId)->first();
+        if ($emp) {
+            $this->employment_classification = (string) $emp->employment_classification;
+            $this->employment_status         = (string) $emp->employment_status;
+            $this->regular_load              = (int) ($emp->regular_load ?? 0);
+            $this->extra_load                = (int) ($emp->extra_load ?? 0);
+        }
+
+        // load availability into UI
+        $this->loadExistingAvailability();
+    }
 
     public function getIsPartTimeProperty(): bool
     {
         return $this->employment_status === 'Part-Time';
     }
 
-    public function mount(User $user)
-    {
-        /** @var \App\Models\User|null $me */
-        $me = Auth::user();
-
-        // Only Program Head / Chairperson
-        abort_unless(in_array($me?->role, ['Head','Chairperson'], true), 403);
-
-        // Scope protection:
-        $isSelf     = $user->id === $me->id;
-        $sameDept   = $user->department_id === $me->department_id;
-        $sameCourse = $me->course_id && $user->course_id === $me->course_id;
-        $isFaculty  = $user->role === 'Faculty';
-
-        abort_unless(
-            $isSelf || ($isFaculty && $sameDept && $sameCourse),
-            403
-        );
-
-        // preload
-        $this->user = $user->load(['department','course','employment','userDepartment']);
-
-        // UI options (GRID ONLY)
-        $this->gridStartOptions = $this->gridStarts;
-        $this->gridEndOptions   = $this->gridEnds;
-
-        $this->user_code_id = $this->user->userDepartment->user_code_id ?? null;
-
-        if ($this->user->userDepartment?->position) {
-            $this->position = $this->user->userDepartment->position;
-        } else {
-            $this->position = ($this->user->role === 'Head' || $this->user->role === 'Chairperson')
-                ? 'Head'
-                : 'Faculty';
-        }
-
-        $this->dept_department_id = $this->user->department_id;
-
-        $this->employment_classification = $this->user->employment->employment_classification ?? 'Teaching';
-        $this->employment_status         = $this->user->employment->employment_status ?? 'Full-Time';
-        $this->regular_load              = $this->user->employment->regular_load ?? 21;
-        $this->extra_load                = $this->user->employment->extra_load ?? 6;
-
-        // defaults
-        foreach ($this->days as $d) {
-            $this->dayEnabled[$d] = false;
-            $this->dayStart[$d]   = '17:30';
-            $this->dayEnd[$d]     = '20:30';
-        }
-
-        // Hydrate existing availability (Mon–Fri only)
-        $records = FacultyAvailability::query()
-            ->with('timeSlot:id,start_time,end_time')
-            ->where('user_id', $this->user->id)
-            ->whereIn('day', $this->days)
-            ->get(['day','time_slot_id','is_available']);
-
-        foreach ($records as $rec) {
-            if (!$rec->timeSlot) continue;
-
-            $d = $rec->day;
-            $this->dayEnabled[$d] = (bool) $rec->is_available;
-            $this->dayStart[$d]   = substr($rec->timeSlot->start_time, 0, 5);
-            $this->dayEnd[$d]     = substr($rec->timeSlot->end_time, 0, 5);
-        }
-    }
-
-    public function updatedEmploymentStatus(): void
-    {
-        // no-op; UI auto re-render
-    }
-
-    /** Department save */
-    public function saveDepartment()
-    {
-        $this->validate([
-            'user_code_id' => ['nullable','string','max:255'],
-            'position'     => ['nullable','string','in:Faculty,Head'],
-        ]);
-
-        $record = $this->user->userDepartment()->first()
-            ?: new UsersDepartment(['user_id' => $this->user->id]);
-
-        $record->user_code_id  = $this->user_code_id;
-        $record->position      = $this->position ?: 'Faculty';
-        $record->department_id = $this->user->department_id; // locked
-        $record->save();
-
-        session()->flash('success_department', 'Department record updated.');
-    }
-
-    /** Employment save */
+    /** Save Employment (Full-Time will auto-create timeslot + availabilities on SAVE) */
     public function saveEmployment()
     {
         $this->validate([
@@ -170,107 +84,135 @@ class Manage extends Component
             'extra_load'                => ['nullable','integer','min:0','max:24'],
         ]);
 
-        $emp = $this->user->employment()->first()
-            ?: new UsersEmployment(['user_id' => $this->user->id]);
+        DB::transaction(function () {
 
-        $emp->employment_classification = $this->employment_classification;
-        $emp->employment_status         = $this->employment_status;
-        $emp->regular_load              = $this->regular_load ?? 0;
-        $emp->extra_load                = $this->extra_load ?? 0;
-        $emp->save();
+            // ✅ Create/update employment row safely
+            $emp = UsersEmployment::firstOrNew(['user_id' => $this->userId]);
+
+            $emp->employment_classification = $this->employment_classification;
+            $emp->employment_status         = $this->employment_status;
+            $emp->regular_load              = $this->regular_load ?? 0;
+            $emp->extra_load                = $this->extra_load ?? 0;
+            $emp->user_id                   = $this->userId; // force fill
+            $emp->save();
+
+            // ✅ AUTO INSERT if Full-Time (on SAVE)
+            if ($this->employment_status === 'Full-Time') {
+                $this->applyFullTimeDefaults($this->userId);
+            }
+        });
+
+        // refresh display user
+        $this->user = User::with(['department','course','userDepartment'])
+            ->findOrFail($this->userId);
 
         session()->flash('success_employment', 'Employment details updated.');
+
+        if ($this->employment_status === 'Full-Time') {
+            session()->flash('success_availability', 'Auto-saved: MON–FRI, 07:30–18:00 (Full-Time).');
+        }
     }
 
-    /**
-     * Save: Availability (Part-Time only)
-     * Now GRID TIMES ONLY via dropdown. No confusing “snap”.
-     */
+    /** Save Availability (Part-Time only) */
     public function saveAvailability()
     {
         if (!$this->isPartTime) {
-            session()->flash('success_availability', 'Availability input applies to Part-Time faculty only.');
+            // Full-time is auto; no manual saving
             return;
         }
 
-        // validate enabled days
-        $rules = [];
-        foreach ($this->days as $d) {
-            if (!empty($this->dayEnabled[$d])) {
-                $rules["dayStart.$d"] = ['required', Rule::in($this->gridStarts)];
-                $rules["dayEnd.$d"]   = ['required', Rule::in($this->gridEnds), 'after:dayStart.'.$d];
+        // Validate enabled days
+        foreach ($this->days as $day) {
+            if (!($this->dayEnabled[$day] ?? false)) continue;
+
+            $this->validate([
+                "dayStart.$day" => ['required','date_format:H:i'],
+                "dayEnd.$day"   => ['required','date_format:H:i'],
+            ]);
+
+            $start = $this->dayStart[$day];
+            $end   = $this->dayEnd[$day];
+
+            if (strtotime($start) >= strtotime($end)) {
+                $this->addError("dayEnd.$day", 'End time must be later than start time.');
+                return;
+            }
+
+            // Friday strict ranges
+            if ($day === 'FRI') {
+                $allowed = [
+                    ['13:00','16:00'],
+                    ['14:30','17:30'],
+                    ['16:00','19:00'],
+                    ['17:30','20:30'],
+                ];
+                $ok = false;
+                foreach ($allowed as [$a,$b]) {
+                    if ($start === $a && $end === $b) { $ok = true; break; }
+                }
+                if (!$ok) {
+                    $this->addError("dayEnd.$day", 'Friday must match allowed time ranges.');
+                    return;
+                }
             }
         }
 
-        if (!empty($rules)) {
-            $this->validate($rules);
-        }
+        DB::transaction(function () {
 
-        foreach ($this->days as $d) {
+            foreach ($this->days as $day) {
+                $enabled = (bool) ($this->dayEnabled[$day] ?? false);
 
-            if (!empty($this->dayEnabled[$d])) {
-
-                $start = $this->dayStart[$d] ?? null; // HH:MM
-                $end   = $this->dayEnd[$d] ?? null;   // HH:MM
-                if (!$start || !$end) continue;
-
-                // FRI: force exact 3-hour window only
-                if ($d === 'FRI') {
-                    $allowed = false;
-                    foreach ($this->gridWindows3h as [$gs, $ge]) {
-                        if ($start === $gs && $end === $ge) {
-                            $allowed = true;
-                            break;
-                        }
-                    }
-                    if (!$allowed) {
-                        $this->addError("dayEnd.$d", 'On Friday, choose one 3-hour window: 13:00–16:00, 14:30–17:30, 16:00–19:00, or 17:30–20:30.');
-                        return;
-                    }
+                if (!$enabled) {
+                    FacultyAvailability::where('user_id', $this->userId)
+                        ->where('day', $day)
+                        ->delete();
+                    continue;
                 }
 
-                // Convert to HH:MM:SS for DB
-                $startSec = $this->normalizeToSec($start);
-                $endSec   = $this->normalizeToSec($end);
-
-                // safety end limit
-                if ($endSec > $this->PT_END_LIMIT) {
-                    $endSec = $this->PT_END_LIMIT;
-                }
-
-                // ensure slot exists
-                $slotId = $this->ensureTimeSlot($startSec, $endSec);
-
-                // Save exactly one slot per day (no duplicates)
-                FacultyAvailability::updateOrCreate(
-                    [
-                        'user_id'      => $this->user->id,
-                        'day'          => $d,
-                        'time_slot_id' => $slotId,
-                    ],
-                    [
-                        'is_available' => true,
-                        'is_preferred' => false,
-                    ]
+                $slotId = $this->ensureTimeSlot(
+                    $this->dayStart[$day] . ':00',
+                    $this->dayEnd[$day] . ':00'
                 );
 
-                FacultyAvailability::where('user_id', $this->user->id)
-                    ->where('day', $d)
-                    ->where('time_slot_id', '!=', $slotId)
-                    ->delete();
-
-            } else {
-                // disabled day => clear
-                FacultyAvailability::where('user_id', $this->user->id)
-                    ->where('day', $d)
-                    ->delete();
+                FacultyAvailability::updateOrCreate(
+                    ['user_id' => $this->userId, 'day' => $day],
+                    ['time_slot_id' => $slotId, 'is_available' => true, 'is_preferred' => false]
+                );
             }
-        }
+        });
 
-        session()->flash('success_availability', 'Part-Time availability saved (GRID times).');
+        session()->flash('success_availability', 'Availability updated.');
     }
 
-    /** Ensure unique slot by (start_time, end_time) */
+    /** ✅ Full-Time Defaults: MON–FRI + 07:30–18:00 (auto-insert) */
+    private function applyFullTimeDefaults(int $userId): void
+    {
+        $days = ['MON','TUE','WED','THU','FRI'];
+
+        $slotId = $this->ensureTimeSlot('07:30:00', '18:00:00');
+
+        foreach ($days as $d) {
+            FacultyAvailability::updateOrCreate(
+                ['user_id' => $userId, 'day' => $d],
+                ['time_slot_id' => $slotId, 'is_available' => true, 'is_preferred' => false]
+            );
+
+            // remove duplicates for same day
+            FacultyAvailability::where('user_id', $userId)
+                ->where('day', $d)
+                ->where('time_slot_id', '!=', $slotId)
+                ->delete();
+        }
+
+        // update UI state (even if hidden)
+        foreach ($days as $d) {
+            $this->dayEnabled[$d] = true;
+            $this->dayStart[$d]   = '07:30';
+            $this->dayEnd[$d]     = '18:00';
+        }
+    }
+
+    /** Ensure a timeslot exists and return its id */
     private function ensureTimeSlot(string $startTime, string $endTime): int
     {
         $slot = TimeSlot::firstOrCreate(
@@ -278,47 +220,62 @@ class Manage extends Component
             ['is_active' => true]
         );
 
-        return $slot->id;
+        // if you have is_active column, keep it active
+        if (isset($slot->is_active) && !$slot->is_active) {
+            $slot->is_active = true;
+            $slot->save();
+        }
+
+        return (int) $slot->id;
     }
 
-    private function normalizeToSec(?string $hhmm): ?string
+    /** Load existing availability rows into the UI */
+    private function loadExistingAvailability(): void
     {
-        if (!$hhmm) return null;
+        $rows = FacultyAvailability::with('timeSlot')
+            ->where('user_id', $this->userId)
+            ->whereIn('day', $this->days)
+            ->get()
+            ->keyBy('day');
 
-        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $hhmm)) return $hhmm;
-        if (preg_match('/^\d{2}:\d{2}$/', $hhmm)) return $hhmm . ':00';
+        foreach ($this->days as $day) {
+            if (!isset($rows[$day])) {
+                $this->dayEnabled[$day] = false;
+                continue;
+            }
 
-        return null;
+            $this->dayEnabled[$day] = true;
+
+            $ts = $rows[$day]->timeSlot;
+            if ($ts) {
+                $this->dayStart[$day] = substr((string) $ts->start_time, 0, 5);
+                $this->dayEnd[$day]   = substr((string) $ts->end_time, 0, 5);
+            }
+        }
     }
 
-    // (kept) helper
-    private function diffMinutes(string $hhmmStart, string $hhmmEnd): int
+    /** Build a 30-minute time grid list */
+    private function makeTimeGrid(string $start, string $end, int $stepMinutes): array
     {
-        // BUGFIX: use $sm not $em on subtract
-        [$sh,$sm] = array_map('intval', explode(':', $hhmmStart));
-        [$eh,$em] = array_map('intval', explode(':', $hhmmEnd));
-        return ($eh*60 + $em) - ($sh*60 + $sm);
-    }
+        $out = [];
+        $cur = strtotime($start);
+        $to  = strtotime($end);
 
-    private function diffMinutesSec(string $secStart, string $secEnd): int
-    {
-        [$sh,$sm,$ss] = array_map('intval', explode(':', $secStart));
-        [$eh,$em,$es] = array_map('intval', explode(':', $secEnd));
-        return (int) round((($eh*3600 + $em*60 + $es) - ($sh*3600 + $sm*60 + $ss)) / 60);
-    }
+        while ($cur <= $to) {
+            $out[] = date('H:i', $cur);
+            $cur = strtotime("+{$stepMinutes} minutes", $cur);
+        }
 
-    /** Scheduler helper */
-    public static function allowedDaysForFullTimer(): array
-    {
-        return ['MON','TUE','WED','THU','FRI'];
+        return $out;
     }
 
     public function render()
     {
         return view('livewire.head.faculties.manage', [
-            'departments' => Department::where('id', $this->user->department_id)
-                ->get(['id','department_name']),
-            'roleBadge'   => $this->user->role ?? '—',
+            'user'             => $this->user,
+            'days'             => $this->days,
+            'gridStartOptions' => $this->gridStartOptions,
+            'gridEndOptions'   => $this->gridEndOptions,
         ]);
     }
 }

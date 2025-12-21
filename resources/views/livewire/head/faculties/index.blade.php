@@ -84,11 +84,12 @@
                                     Edit
                                 </button>
 
-                                {{-- Manage --}}
-                                <a href="{{ route('head.faculties.manage', $u) }}"
-                                   class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-white text-xs hover:bg-emerald-700">
-                                   Manage
+                                <a href="{{ route('head.faculties.manage', $u->id) }}"
+                                wire:navigate
+                                class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-white text-xs hover:bg-emerald-700">
+                                Manage
                                 </a>
+
 
                                 {{-- Specializations --}}
                                 <a href="{{ route('head.faculties.specializations', $u) }}"

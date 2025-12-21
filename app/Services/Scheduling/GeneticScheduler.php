@@ -24,10 +24,15 @@ class GeneticScheduler
     private bool $STRICT_SPECIALIZATION_ONLY = true;
     private bool $ALLOW_IF_SUBJECT_NO_SPEC   = false;
     private bool $FALLBACK_IF_NO_MATCH       = false;
-    private bool $ENFORCE_PT_AVAIL_STRICT    = true;
+    private bool $ENFORCE_PT_AVAIL_STRICT    = true; // (kept name, now applies to ALL faculty)
 
     // time grid
     private array $dayPairs = [['MON','WED'], ['TUE','THU']];
+
+    /**
+     * ✅ Extended slots to support evening schedules
+     * (Still used for GA slot picking.)
+     */
     private array $slots = [
         ['07:30','09:00'],
         ['09:00','10:30'],
@@ -35,9 +40,9 @@ class GeneticScheduler
         ['13:00','14:30'],
         ['14:30','16:00'],
         ['16:00','17:30'],
+        ['17:30','19:00'],
+        ['19:00','20:30'],
     ];
-    private string $FT_START = '07:30';
-    private string $FT_END   = '18:00';
 
     // pools
     private Collection $faculty;
@@ -48,7 +53,6 @@ class GeneticScheduler
     private array $currentLoad = [];         // [fid => current term units]
     private array $facultySpecs = [];        // [fid => [spec_id...]]
     private array $facultyAvail = [];        // [fid => [DAY => [[s,e]...]]]
-    private array $isPartTime = [];          // [fid => bool]
     private array $existingRoom = [];        // [rid][DAY] => [[s,e]...]
     private array $existingFaculty = [];     // [fid][DAY] => [[s,e]...]
 
@@ -159,8 +163,9 @@ class GeneticScheduler
         $this->maxUnits     = $this->computeMaxUnits($facultyIds);
         $this->currentLoad  = $this->currentTermLoads();
         $this->facultySpecs = $this->facultySpecMap($facultyIds); // ✅ user_specializations
+
+        // ✅ Availability is now required for BOTH FT and PT (DB is source of truth)
         $this->facultyAvail = $this->loadFacultyAvailability($facultyIds);
-        $this->isPartTime   = $this->loadPartTimeMap($facultyIds);
 
         $this->preloadExistingConflicts();
         $this->loadCurriculaAndPools();
@@ -199,7 +204,6 @@ class GeneticScheduler
 
     /**
      * ✅ Faculty pool = users who have at least 1 specialization assigned.
-     * This avoids role-string issues.
      */
     private function teachingFaculty(): Collection
     {
@@ -259,8 +263,8 @@ class GeneticScheduler
             $cur = (int)($this->currentLoad[$fid] ?? 0);
             if ($cur >= $max) continue;
 
-            // ✅ PT strict: must have at least 1 availability row
-            if ($this->ENFORCE_PT_AVAIL_STRICT && $this->isPartTimeId($fid) && !$this->hasAnyAvailability($fid)) {
+            // ✅ Availability strict applies to ALL faculty now
+            if ($this->ENFORCE_PT_AVAIL_STRICT && !$this->hasAnyAvailability($fid)) {
                 continue;
             }
 
@@ -501,7 +505,7 @@ class GeneticScheduler
             'meetings' => $meetings,
             'loads'    => $loads,
             'score'    => $score,
-            'inc'      => $inc, // ✅ INC list
+            'inc'      => $inc,
             'debug'    => $this->buildDebug($allIds),
         ];
     }
@@ -520,7 +524,7 @@ class GeneticScheduler
         }
 
         $ef = count($this->eligibleFacultyByCurr[$cid] ?? []);
-        if ($ef <= 0) return 'INC: No eligible faculty matches specialization / PT availability / max units.';
+        if ($ef <= 0) return 'INC: No eligible faculty matches specialization / availability / max units.';
 
         $cr = count($this->candidateRoomsByCurr[$cid] ?? []);
         if ($cr <= 0) return 'INC: No candidate rooms (room type mismatch).';
@@ -597,34 +601,6 @@ class GeneticScheduler
 
     // ───────────────────────── availability + conflicts ─────────────────────────
 
-    private function loadPartTimeMap(array $facultyIds): array
-    {
-        $map = [];
-        foreach ($facultyIds as $id) $map[(int)$id] = false;
-
-        if (!Schema::hasTable('users_employments')) return $map;
-
-        $rows = DB::table('users_employments')->whereIn('user_id', $facultyIds)->get();
-
-        foreach ($rows as $r) {
-            $uid = (int)$r->user_id;
-
-            foreach (['employment_status','status','employment_type'] as $col) {
-                if (isset($r->$col) && strtoupper((string)$r->$col) === 'PART-TIME') {
-                    $map[$uid] = true;
-                    break;
-                }
-            }
-        }
-
-        return $map;
-    }
-
-    private function isPartTimeId(int $uid): bool
-    {
-        return (bool)($this->isPartTime[$uid] ?? false);
-    }
-
     private function normalizeDay(?string $day): ?string
     {
         if (!$day) return null;
@@ -651,8 +627,6 @@ class GeneticScheduler
 
     private function hasAnyAvailability(int $uid): bool
     {
-        if (!$this->isPartTimeId($uid)) return true;
-
         $avail = $this->facultyAvail[$uid] ?? [];
         if (empty($avail)) return false;
 
@@ -666,14 +640,10 @@ class GeneticScheduler
     {
         $day = $this->normalizeDay($day) ?? strtoupper($day);
 
-        // FULL-TIME: always available in FT window
-        if (!$this->isPartTimeId($uid)) {
-            return ($start >= $this->FT_START) && ($end <= $this->FT_END);
-        }
-
-        // PART-TIME: strict windows
+        // strict OFF => allow
         if (!$this->ENFORCE_PT_AVAIL_STRICT) return true;
 
+        // strict ON => must be covered by DB windows
         $wins = $this->facultyAvail[$uid][$day] ?? [];
         if (empty($wins)) return false;
 
@@ -740,11 +710,52 @@ class GeneticScheduler
         return $days[array_rand($days)];
     }
 
+    /**
+     * ✅ faculty_availabilities uses time_slot_id FK
+     * so we JOIN time_slots to get start_time/end_time
+     *
+     * Output: [user_id][DAY] = [[HH:MM, HH:MM], ...]
+     */
     private function loadFacultyAvailability(array $facultyIds): array
     {
         $out = [];
         if (!Schema::hasTable('faculty_availabilities')) return $out;
 
+        $hasTimeSlotId = Schema::hasColumn('faculty_availabilities', 'time_slot_id')
+            && Schema::hasTable('time_slots');
+
+        if ($hasTimeSlotId) {
+            $rows = DB::table('faculty_availabilities as fa')
+                ->join('time_slots as ts', 'ts.id', '=', 'fa.time_slot_id')
+                ->whereIn('fa.user_id', $facultyIds)
+                ->where('fa.is_available', 1)
+                ->get([
+                    'fa.user_id',
+                    'fa.day',
+                    'ts.start_time',
+                    'ts.end_time',
+                ]);
+
+            foreach ($rows as $r) {
+                $uid = (int)$r->user_id;
+
+                $day = $this->normalizeDay((string)($r->day ?? ''));
+                if (!$day) continue;
+
+                $start = substr((string)$r->start_time, 0, 5);
+                $end   = substr((string)$r->end_time,   0, 5);
+
+                if (!$start || !$end) continue;
+
+                $out[$uid] ??= [];
+                $out[$uid][$day] ??= [];
+                $out[$uid][$day][] = [$start, $end];
+            }
+
+            return $out;
+        }
+
+        // fallback (if availability table stored direct times)
         $rows = DB::table('faculty_availabilities')
             ->whereIn('user_id', $facultyIds)
             ->where('is_available', 1)

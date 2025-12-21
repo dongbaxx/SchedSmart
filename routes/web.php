@@ -168,7 +168,7 @@ Route::middleware(['auth','role:Head'])->group(function () {
 
     Route::get('/faculties',                              Faculties\Index::class)->name('faculties.index');
     Route::get('/faculties/add',                          Faculties\Create::class)->name('faculties.create');
-    Route::get('/faculties/{user}',                       Faculties\Manage::class)->name('faculties.manage');
+    Route::get('/faculties/{user}/manage',                       Faculties\Manage::class)->name('faculties.manage');
     Route::get('/faculties/{user}/spec',                  Faculties\Specializations::class)->name('faculties.specializations');
 
       // Specializations
