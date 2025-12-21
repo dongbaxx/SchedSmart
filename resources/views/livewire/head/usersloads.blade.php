@@ -1,5 +1,8 @@
+{{-- resources/views/livewire/head/faculty-loads.blade.php (or your current file) --}}
+
 {{-- ===================== PRINT & SCREEN STYLES ===================== --}}
 <style>
+/* ===================== PRINT ONLY (LOCKED) ===================== */
 @media print {
   nav, aside, header, footer, .navbar, .sidebar, .print\:hidden {
     display:none !important;
@@ -71,8 +74,8 @@
     width:100%;
   }
 
-  .meta-row .left  { padding-left:26mm; }
-  .meta-row .right { padding-right:26mm; text-align:right; }
+  .meta-row .left  { padding-left:8%; }
+  .meta-row .right { padding-right:8%; text-align:right; }
 
   .h-title {
     font-size:22px;
@@ -131,35 +134,22 @@ main .lg\:px-8 {
 }
 
 /* background sa app */
-body {
-  background-color:#fbfaf8!important;
-}
+body { background-color:#fbfaf8!important; }
+main { background-color:#fbfaf8!important; }
 
-/* main area */
-main {
-  background-color:#fbfaf8!important;
-}
-
-/* root container sa Faculty Loads – full width */
+/* root container – full width */
 .print-root {
   width:100% !important;
   max-width:100% !important;
   margin:0 !important;
-  padding:0 16px 24px 16px !important; /* gamay lang nga side padding */
+  padding:0 16px 24px 16px !important;
 }
 
-/* page wrapper – dili na mag-limit sa width */
-.page {
-  width:100% !important;
-  margin:0 auto !important;
-}
+/* page wrapper */
+.page { width:100% !important; margin:0 auto !important; }
+.page-inner { width:100% !important; margin:0 auto !important; }
 
-.page-inner {
-  width:100% !important;
-  margin:0 auto !important;
-}
-
-/* TABLE – full width, walay margin auto */
+/* TABLE */
 .table {
   width:90% !important;
   border-collapse:collapse;
@@ -195,11 +185,7 @@ main {
 }
 
 /* header image */
-.header-image {
-  text-align:center;
-  margin-bottom:6px;
-}
-
+.header-image { text-align:center; margin-bottom:6px; }
 .header-image img {
   height:85px;
   object-fit:contain;
@@ -215,11 +201,7 @@ main {
   font-size:14px;
 }
 
-.meta-row {
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:2px;
-}
+.meta-row { display:flex; justify-content:space-between; margin-bottom:2px; }
 
 /* bring meta info a bit inward */
 .meta-row .left  { padding-left:2.5in; }
@@ -246,13 +228,51 @@ main {
   padding:10px 12px;
   border-radius:8px;
 }
+
+/* ===================== DASHBOARD-ONLY BEHAVIOR (SCREEN ONLY) ===================== */
+/* ✅ IMPORTANT: screen-only para walay ma-usab sa print */
+@media screen {
+  /* First sheet ra magpakita header/logo + meta-info sa dashboard */
+  .page.is-not-first .header-image,
+  .page.is-not-first .meta-info {
+    display:none;
+  }
+}
+
+
+/* ================= INDEX ONLY – TABLE SPACING ================= */
+@media screen {
+  /* existing */
+  .page.is-not-first .header-image,
+  .page.is-not-first .meta-info { display:none; }
+
+  /* ✅ 1) palayo ang title sa table (mao ni imong gi-point) */
+  .h-title {
+    margin-bottom:10px;  /* adjust: 16–32 */
+  }
+
+  /* ✅ 2) push table a bit down */
+  .page-inner table {
+    margin-top:10px;     /* adjust: 6–18 */
+  }
+
+  /* ✅ 3) palayo ang next faculty block */
+  .section-block {
+    margin-bottom:56px;  /* adjust: 40–80 */
+  }
+  .page.is-not-first .h-title {
+    margin-top: 1in !important;
+  }
+}
+
+
 </style>
 
 @php
     /** @var bool $showHistory */
     /** @var int|null $academicId */
-    /** @var \Illuminate\Support\Collection<int,\App\Models\AcademicYear> $terms */
-    /** @var \App\Models\AcademicYear|null $currentTerm */
+    /** @var int|null $facultyId */
+    /** @var array $facultyOptions */
 
     if (!isset($terms)) {
         $terms = \App\Models\AcademicYear::orderByDesc('id')->get();
@@ -263,6 +283,18 @@ main {
     if (!isset($currentTerm)) {
         $currentTerm = $terms->firstWhere('id', (int) $academicId);
     }
+
+    // ✅ dashboard instructor label (if faculty selected)
+    $selectedFacultyLabel = null;
+    if (!empty($facultyId) && !empty($facultyOptions)) {
+        foreach ($facultyOptions as $opt) {
+            if ((int)($opt['value'] ?? 0) === (int)$facultyId) {
+                $selectedFacultyLabel = $opt['label'] ?? null;
+                break;
+            }
+        }
+    }
+    $dashInstructor = $selectedFacultyLabel ?: (!empty($facultyId) ? '—' : 'ALL');
 @endphp
 
 <div class="print-root space-y-6">
@@ -343,7 +375,7 @@ main {
       </button>
   </form>
 
-  {{-- ===================== Printable Pages ===================== --}}
+  {{-- ===================== Pages ===================== --}}
   @forelse($sheets as $sheet)
       @php
           $semRaw   = $sheet['semester'] ?? null;
@@ -357,20 +389,24 @@ main {
               } elseif (in_array($s, ['3','3rd','third','summer','midyear','mid-year'])) {
                   $semLabel = (str_contains($s, 'mid')) ? 'Midyear' : 'Summer';
               } else {
-                  $semLabel = ucwords($semRaw);
+                  $semLabel = ucwords((string)$semRaw);
               }
           }
+
+          $sheetFacultyName = $sheet['faculty'] ?? ($sheet['faculty_short'] ?? null);
+          $printInstructor  = $sheet['faculty_short'] ?? $sheet['faculty'] ?? '—';
       @endphp
 
-      <div class="page">
+      {{-- ✅ marker classes (screen-only hide header/meta on non-first) --}}
+      <div class="page {{ $loop->first ? 'is-first' : 'is-not-first' }}">
           <div class="page-inner">
 
-              {{-- Header image --}}
+              {{-- Header image (dashboard: first sheet only | print: all pages) --}}
               <div class="header-image">
                   <img src="{{ asset('images/sfxc_header.png') }}" alt="St. Francis Xavier College Header">
               </div>
 
-              {{-- Academic + Faculty info --}}
+              {{-- Academic + Faculty info (dashboard: first sheet only | print: all pages) --}}
               <div class="meta-info">
                 <div class="meta-row">
                   <div class="left">
@@ -385,7 +421,13 @@ main {
                 <div class="meta-row">
                   <div class="left">
                       Instructor :
-                      <strong>{{ $sheet['faculty_short'] ?? $sheet['faculty'] ?? '—' }}</strong>
+                      <strong>
+                        {{-- ✅ DASHBOARD: show selected faculty name --}}
+                        <span class="print:hidden">{{ $dashInstructor }}</span>
+
+                        {{-- ✅ PRINT: keep original per-sheet instructor --}}
+                        <span class="hidden print:inline">{{ $printInstructor }}</span>
+                      </strong>
                   </div>
                   <div class="right">
                       {{-- Optional: Program / Course name --}}
@@ -393,7 +435,13 @@ main {
                 </div>
               </div>
 
-              <div class="h-title">FACULTY LOADS</div>
+              {{-- ✅ TITLE: Dashboard = faculty name | Print = FACULTY LOADS (unchanged print) --}}
+              <div class="h-title">
+                <span class="print:hidden">
+                  {{ $sheetFacultyName ?: ($selectedFacultyLabel ?: 'FACULTY') }}
+                </span>
+                <span class="hidden print:inline">FACULTY LOADS</span>
+              </div>
 
               <table class="table">
                   <thead>
@@ -412,15 +460,15 @@ main {
                   <tbody>
                       @forelse($sheet['rows'] as $r)
                           <tr>
-                              <td class="mono">{{ $r['code'] }}</td>
-                              <td>{{ $r['title'] }}</td>
-                              <td class="mono">{{ $r['units'] }}</td>
-                              <td class="mono">{{ $r['section'] }}</td>
-                              <td class="mono">{{ $r['st'] }}</td>
-                              <td class="mono">{{ $r['et'] }}</td>
-                              <td class="mono">{{ $r['days'] }}</td>
-                              <td class="mono">{{ $r['room'] }}</td>
-                              <td class="mono">{{ $r['inst'] }}</td>
+                              <td class="mono">{{ $r['code'] ?? '—' }}</td>
+                              <td>{{ $r['title'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['units'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['section'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['st'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['et'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['days'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['room'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['inst'] ?? '—' }}</td>
                           </tr>
                       @empty
                           <tr>
@@ -453,3 +501,6 @@ main {
     </div>
   @endforelse
 </div>
+
+{{-- Source reference for your original file --}}
+{{-- :contentReference[oaicite:0]{index=0} --}}

@@ -24,14 +24,14 @@ class GeneticScheduler
     private bool $STRICT_SPECIALIZATION_ONLY = true;
     private bool $ALLOW_IF_SUBJECT_NO_SPEC   = false;
     private bool $FALLBACK_IF_NO_MATCH       = false;
-    private bool $ENFORCE_PT_AVAIL_STRICT    = true; // (kept name, now applies to ALL faculty)
+    private bool $ENFORCE_PT_AVAIL_STRICT    = true; // applies to ALL faculty
 
     // time grid
     private array $dayPairs = [['MON','WED'], ['TUE','THU']];
 
     /**
-     * ✅ Extended slots to support evening schedules
-     * (Still used for GA slot picking.)
+     * Slot choices for PAIR (90 mins per day).
+     * SINGLE uses merged 3-hour blocks built from these.
      */
     private array $slots = [
         ['07:30','09:00'],
@@ -49,18 +49,18 @@ class GeneticScheduler
     private Collection $rooms;
 
     // caches
-    private array $maxUnits = [];            // [fid => max units]
-    private array $currentLoad = [];         // [fid => current term units]
-    private array $facultySpecs = [];        // [fid => [spec_id...]]
-    private array $facultyAvail = [];        // [fid => [DAY => [[s,e]...]]]
-    private array $existingRoom = [];        // [rid][DAY] => [[s,e]...]
-    private array $existingFaculty = [];     // [fid][DAY] => [[s,e]...]
+    private array $maxUnits = [];             // [fid => max units]
+    private array $currentLoad = [];          // [fid => current term units]
+    private array $facultySpecs = [];         // [fid => [spec_id...]]
+    private array $facultyAvail = [];         // [fid => [DAY => [[s,e]...]]]
+    private array $existingRoom = [];         // [rid][DAY] => [[s,e]...]
+    private array $existingFaculty = [];      // [fid][DAY] => [[s,e]...]
 
-    private array $currById = [];            // [cid => Curriculum]
-    private array $unitsByCurr = [];         // [cid => units]
-    private array $typeByCurr = [];          // [cid => 'LAB'|'LEC']
-    private array $eligibleFacultyByCurr = [];// [cid => [fid...]]
-    private array $candidateRoomsByCurr = []; // [cid => [rid...]]
+    private array $currById = [];             // [cid => Curriculum]
+    private array $unitsByCurr = [];          // [cid => units]
+    private array $typeByCurr = [];           // [cid => 'LAB'|'LEC']
+    private array $eligibleFacultyByCurr = []; // [cid => [fid...]]
+    private array $candidateRoomsByCurr = [];  // [cid => [rid...]]
 
     public function __construct(CourseOffering $offering, array $plan, array $params = [])
     {
@@ -95,7 +95,7 @@ class GeneticScheduler
             ];
         }
 
-        // ✅ PARTIAL scheduling: only schedule schedulable subjects
+        // only schedule schedulable subjects (partial scheduling)
         $schedulableIds = array_values(array_filter($allIds, function($cid){
             $cid = (int)$cid;
             $hasFaculty = !empty($this->eligibleFacultyByCurr[$cid] ?? []);
@@ -148,6 +148,7 @@ class GeneticScheduler
 
         usort($pop, fn($a,$b) => $b['f'] <=> $a['f']);
 
+        // ✅ decode + post-check gate
         return $this->decodeResult($pop[0]['c'], $pop[0]['f'], $allIds);
     }
 
@@ -155,20 +156,38 @@ class GeneticScheduler
 
     private function bootstrap(): void
     {
-        $this->faculty = $this->teachingFaculty(); // ✅ from user_specializations
-        $this->rooms   = Room::orderBy('code')->get();
+        $this->faculty = $this->teachingFaculty();
+
+        // ✅ ACTIVE ROOMS ONLY
+        $this->rooms = $this->activeRoomsQuery()->orderBy('code')->get(['id','code','room_type_id']);
 
         $facultyIds = $this->faculty->pluck('id')->map(fn($x) => (int)$x)->all();
 
         $this->maxUnits     = $this->computeMaxUnits($facultyIds);
         $this->currentLoad  = $this->currentTermLoads();
-        $this->facultySpecs = $this->facultySpecMap($facultyIds); // ✅ user_specializations
+        $this->facultySpecs = $this->facultySpecMap($facultyIds);
 
-        // ✅ Availability is now required for BOTH FT and PT (DB is source of truth)
         $this->facultyAvail = $this->loadFacultyAvailability($facultyIds);
 
-        $this->preloadExistingConflicts();
+        $this->preloadExistingConflicts(); // ✅ current term only if academic_id exists
         $this->loadCurriculaAndPools();
+    }
+
+    private function activeRoomsQuery()
+    {
+        $q = Room::query();
+
+        // detect common "active" columns
+        if (Schema::hasColumn('rooms', 'is_active')) {
+            $q->where('is_active', 1);
+        } elseif (Schema::hasColumn('rooms', 'active')) {
+            $q->where('active', 1);
+        } elseif (Schema::hasColumn('rooms', 'status')) {
+            // status-based: 'active' vs 'inactive'
+            $q->whereRaw('LOWER(status) = ?', ['active']);
+        }
+
+        return $q;
     }
 
     private function curriculumIds(): array
@@ -202,9 +221,6 @@ class GeneticScheduler
 
     // ───────────────────────── faculty pool + specialization ─────────────────────────
 
-    /**
-     * ✅ Faculty pool = users who have at least 1 specialization assigned.
-     */
     private function teachingFaculty(): Collection
     {
         $q = User::query()->orderBy('name');
@@ -220,9 +236,6 @@ class GeneticScheduler
         return $q->get(['id','name','max_units']);
     }
 
-    /**
-     * ✅ user_specializations map: [user_id => [specialization_id...]]
-     */
     private function facultySpecMap(array $facultyIds): array
     {
         if (!Schema::hasTable('user_specializations')) return [];
@@ -263,7 +276,6 @@ class GeneticScheduler
             $cur = (int)($this->currentLoad[$fid] ?? 0);
             if ($cur >= $max) continue;
 
-            // ✅ Availability strict applies to ALL faculty now
             if ($this->ENFORCE_PT_AVAIL_STRICT && !$this->hasAnyAvailability($fid)) {
                 continue;
             }
@@ -291,11 +303,12 @@ class GeneticScheduler
 
     private function candidateRoomsForSubject(string $type): array
     {
+        // ✅ based on ACTIVE rooms pool ($this->rooms already filtered)
         if (Schema::hasTable('room_types') && Schema::hasColumn('rooms','room_type_id')) {
             $typeId = $this->roomTypeIdByMajority($type);
 
             if ($typeId) {
-                $ids = Room::where('room_type_id', $typeId)->pluck('id')->all();
+                $ids = $this->rooms->where('room_type_id', (int)$typeId)->pluck('id')->all();
                 if (!empty($ids)) return array_map('intval', $ids);
             }
 
@@ -305,12 +318,41 @@ class GeneticScheduler
         return $this->rooms->pluck('id')->map(fn($x) => (int)$x)->all();
     }
 
+    // ───────────────────────── INTERNAL CONFLICT HELPERS ─────────────────────────
+
+    private function addBusy(array &$map, int $id, string $day, string $s, string $e): void
+    {
+        $day = $this->normalizeDay($day) ?? strtoupper($day);
+        $map[$id] ??= [];
+        $map[$id][$day] ??= [];
+        $map[$id][$day][] = [$s,$e];
+    }
+
+    private function hasBusy(array $map, int $id, string $day, string $s, string $e): bool
+    {
+        $day = $this->normalizeDay($day) ?? strtoupper($day);
+        foreach (($map[$id][$day] ?? []) as $w) {
+            if ($this->overlaps($w[0], $w[1], $s, $e)) return true;
+        }
+        return false;
+    }
+
+    private function hasBusyPair(array $map, int $id, array $days, string $s, string $e): bool
+    {
+        return $this->hasBusy($map, $id, $days[0], $s, $e)
+            || $this->hasBusy($map, $id, $days[1], $s, $e);
+    }
+
     // ───────────────────────── GA ops ─────────────────────────
 
     private function randomChromosome(array $currIds): array
     {
         $chrom = [];
         $tmpLoad = $this->currentLoad;
+
+        // ✅ internal conflicts within same chromosome
+        $internalRoom = [];
+        $internalFaculty = [];
 
         foreach ($currIds as $cid) {
             $c = $this->currById[$cid] ?? null;
@@ -329,7 +371,7 @@ class GeneticScheduler
 
             $gene = null;
 
-            for ($k=0; $k<220; $k++) {
+            for ($k=0; $k<240; $k++) {
                 $fid = (int)$facultyIds[array_rand($facultyIds)];
                 $rid = (int)$roomIds[array_rand($roomIds)];
 
@@ -343,8 +385,14 @@ class GeneticScheduler
                     $st = $slot[0]; $et = $slot[1];
 
                     if (!$this->coversPair($fid, $pair, $st, $et)) continue;
+
+                    // DB conflicts (current term only)
                     if ($this->conflictRoomPair($rid, $pair, $st, $et)) continue;
                     if ($this->conflictFacultyPair($fid, $pair, $st, $et)) continue;
+
+                    // internal conflicts
+                    if ($this->hasBusyPair($internalRoom, $rid, $pair, $st, $et)) continue;
+                    if ($this->hasBusyPair($internalFaculty, $fid, $pair, $st, $et)) continue;
 
                     $gene = [
                         'kind' => 'PAIR',
@@ -355,6 +403,12 @@ class GeneticScheduler
                         'faculty_id'=>$fid,
                         'type'=>$type,
                     ];
+
+                    $this->addBusy($internalRoom, $rid, $pair[0], $st, $et);
+                    $this->addBusy($internalRoom, $rid, $pair[1], $st, $et);
+                    $this->addBusy($internalFaculty, $fid, $pair[0], $st, $et);
+                    $this->addBusy($internalFaculty, $fid, $pair[1], $st, $et);
+
                 } else {
                     $wins = $this->merged3hSlots();
                     if (empty($wins)) continue;
@@ -364,8 +418,14 @@ class GeneticScheduler
                     $day = $this->randomLabDay();
 
                     if (!$this->coversWindow($fid, $day, $st, $et)) continue;
+
+                    // DB conflicts
                     if ($this->conflictRoomSingle($rid, $day, $st, $et)) continue;
                     if ($this->conflictFacultySingle($fid, $day, $st, $et)) continue;
+
+                    // internal conflicts
+                    if ($this->hasBusy($internalRoom, $rid, $day, $st, $et)) continue;
+                    if ($this->hasBusy($internalFaculty, $fid, $day, $st, $et)) continue;
 
                     $gene = [
                         'kind'=>'SINGLE',
@@ -376,6 +436,9 @@ class GeneticScheduler
                         'faculty_id'=>$fid,
                         'type'=>$type,
                     ];
+
+                    $this->addBusy($internalRoom, $rid, $day, $st, $et);
+                    $this->addBusy($internalFaculty, $fid, $day, $st, $et);
                 }
 
                 if ($gene) {
@@ -401,6 +464,10 @@ class GeneticScheduler
 
         $tmpLoad = $this->currentLoad;
 
+        // internal conflicts within chromosome
+        $internalRoom = [];
+        $internalFaculty = [];
+
         foreach ($chrom as $cid => $gene) {
             if (!$gene) { $score -= $P_UNASSIGNED; continue; }
 
@@ -422,20 +489,107 @@ class GeneticScheduler
                 $et = (string)$gene['end'];
 
                 if (!$this->coversPair($fid, $days, $st, $et)) $score -= $P_AVAIL;
+
                 if ($this->conflictRoomPair($rid, $days, $st, $et)) $score -= $P_CONFLICT;
                 if ($this->conflictFacultyPair($fid, $days, $st, $et)) $score -= $P_CONFLICT;
+
+                if ($this->hasBusyPair($internalRoom, $rid, $days, $st, $et)) $score -= $P_CONFLICT;
+                if ($this->hasBusyPair($internalFaculty, $fid, $days, $st, $et)) $score -= $P_CONFLICT;
+
+                $this->addBusy($internalRoom, $rid, $days[0], $st, $et);
+                $this->addBusy($internalRoom, $rid, $days[1], $st, $et);
+                $this->addBusy($internalFaculty, $fid, $days[0], $st, $et);
+                $this->addBusy($internalFaculty, $fid, $days[1], $st, $et);
+
             } else {
                 $d  = (string)($gene['day'] ?? '');
                 $st = (string)$gene['start'];
                 $et = (string)($gene['end'] ?? '');
 
                 if (!$this->coversWindow($fid, $d, $st, $et)) $score -= $P_AVAIL;
+
                 if ($this->conflictRoomSingle($rid, $d, $st, $et)) $score -= $P_CONFLICT;
                 if ($this->conflictFacultySingle($fid, $d, $st, $et)) $score -= $P_CONFLICT;
+
+                if ($this->hasBusy($internalRoom, $rid, $d, $st, $et)) $score -= $P_CONFLICT;
+                if ($this->hasBusy($internalFaculty, $fid, $d, $st, $et)) $score -= $P_CONFLICT;
+
+                $this->addBusy($internalRoom, $rid, $d, $st, $et);
+                $this->addBusy($internalFaculty, $fid, $d, $st, $et);
             }
         }
 
         return $score;
+    }
+
+    /**
+     * ✅ FINAL GATE: post-check before returning meetings.
+     * - Ensures no internal overlaps (faculty/room).
+     * - If conflict detected, mark that subject INC and skip inserting its meetings.
+     */
+    private function sanitizeChromosomeBeforeInsert(array $chrom, array &$inc): array
+    {
+        $safe = [];
+        $internalRoom = [];
+        $internalFaculty = [];
+
+        foreach ($chrom as $cid => $gene) {
+            if (!$gene) { $safe[$cid] = null; continue; }
+
+            $cid = (int)$cid;
+            $fid = (int)($gene['faculty_id'] ?? 0);
+            $rid = (int)($gene['room_id'] ?? 0);
+
+            if ($fid <= 0 || $rid <= 0) {
+                $inc[$cid] = 'Post-check: Missing faculty/room.';
+                $safe[$cid] = null;
+                continue;
+            }
+
+            if (($gene['kind'] ?? '') === 'PAIR') {
+                $days = $gene['days'] ?? [];
+                $st = (string)$gene['start'];
+                $et = (string)$gene['end'];
+
+                // internal overlap?
+                if ($this->hasBusyPair($internalFaculty, $fid, $days, $st, $et) ||
+                    $this->hasBusyPair($internalRoom, $rid, $days, $st, $et)
+                ) {
+                    $inc[$cid] = 'Post-check: Internal conflict detected (faculty/room overlap).';
+                    $safe[$cid] = null;
+                    continue;
+                }
+
+                // mark busy
+                $this->addBusy($internalRoom, $rid, $days[0], $st, $et);
+                $this->addBusy($internalRoom, $rid, $days[1], $st, $et);
+                $this->addBusy($internalFaculty, $fid, $days[0], $st, $et);
+                $this->addBusy($internalFaculty, $fid, $days[1], $st, $et);
+
+                $safe[$cid] = $gene;
+                continue;
+            }
+
+            // SINGLE
+            $d  = (string)($gene['day'] ?? '');
+            $st = (string)$gene['start'];
+            $et = (string)($gene['end'] ?? '');
+
+            if ($this->hasBusy($internalFaculty, $fid, $d, $st, $et) ||
+                $this->hasBusy($internalRoom, $rid, $d, $st, $et)
+            ) {
+                $inc[$cid] = 'Post-check: Internal conflict detected (faculty/room overlap).';
+                $safe[$cid] = null;
+                continue;
+            }
+
+            $this->addBusy($internalRoom, $rid, $d, $st, $et);
+            $this->addBusy($internalFaculty, $fid, $d, $st, $et);
+
+            $safe[$cid] = $gene;
+        }
+
+        return $safe;
     }
 
     private function decodeResult(array $chrom, float $score, array $allIds): array
@@ -444,14 +598,22 @@ class GeneticScheduler
         $loads = [];
         $inc = [];
 
+        // pre-inc for unscheduled
+        foreach ($allIds as $cid) {
+            $cid = (int)$cid;
+            if (empty($chrom[$cid] ?? null)) {
+                $inc[$cid] = $this->diagnoseImpossible($cid);
+            }
+        }
+
+        // ✅ final safety gate
+        $chrom = $this->sanitizeChromosomeBeforeInsert($chrom, $inc);
+
         foreach ($allIds as $cid) {
             $cid = (int)$cid;
             $gene = $chrom[$cid] ?? null;
 
-            if (!$gene) {
-                $inc[$cid] = $this->diagnoseImpossible($cid);
-                continue;
-            }
+            if (!$gene) continue;
 
             $fid = (int)($gene['faculty_id'] ?? 0);
             $rid = (int)($gene['room_id'] ?? 0);
@@ -527,7 +689,7 @@ class GeneticScheduler
         if ($ef <= 0) return 'INC: No eligible faculty matches specialization / availability / max units.';
 
         $cr = count($this->candidateRoomsByCurr[$cid] ?? []);
-        if ($cr <= 0) return 'INC: No candidate rooms (room type mismatch).';
+        if ($cr <= 0) return 'INC: No candidate rooms (room type mismatch OR rooms inactive).';
 
         return 'INC: No feasible slot due to conflicts/availability.';
     }
@@ -639,11 +801,8 @@ class GeneticScheduler
     private function coversWindow(int $uid, string $day, string $start, string $end): bool
     {
         $day = $this->normalizeDay($day) ?? strtoupper($day);
-
-        // strict OFF => allow
         if (!$this->ENFORCE_PT_AVAIL_STRICT) return true;
 
-        // strict ON => must be covered by DB windows
         $wins = $this->facultyAvail[$uid][$day] ?? [];
         if (empty($wins)) return false;
 
@@ -710,12 +869,6 @@ class GeneticScheduler
         return $days[array_rand($days)];
     }
 
-    /**
-     * ✅ faculty_availabilities uses time_slot_id FK
-     * so we JOIN time_slots to get start_time/end_time
-     *
-     * Output: [user_id][DAY] = [[HH:MM, HH:MM], ...]
-     */
     private function loadFacultyAvailability(array $facultyIds): array
     {
         $out = [];
@@ -755,7 +908,7 @@ class GeneticScheduler
             return $out;
         }
 
-        // fallback (if availability table stored direct times)
+        // fallback if times stored directly
         $rows = DB::table('faculty_availabilities')
             ->whereIn('user_id', $facultyIds)
             ->where('is_available', 1)
@@ -795,6 +948,7 @@ class GeneticScheduler
             ->join('course_offerings as co', 'co.id', '=', 'sm.offering_id')
             ->whereNotNull('sm.faculty_id');
 
+        // ✅ current term only
         if (Schema::hasColumn('course_offerings','academic_id') && isset($this->offering->academic_id)) {
             $q->where('co.academic_id', (int)$this->offering->academic_id);
         }
@@ -828,6 +982,7 @@ class GeneticScheduler
             ->join('course_offerings as co', 'co.id', '=', 'sm.offering_id')
             ->whereNotNull('sm.start_time');
 
+        // ✅ current term only
         if (Schema::hasColumn('course_offerings','academic_id') && isset($this->offering->academic_id)) {
             $q->where('co.academic_id', (int)$this->offering->academic_id);
         }

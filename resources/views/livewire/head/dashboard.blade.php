@@ -72,8 +72,8 @@ body { background:#f5f6f8; }
 }
 .meta-row { display:flex; justify-content:space-between; margin-bottom:2px; width:100%; }
 /* ✅ screen: no big inch padding (mao naguba ug alignment) */
-.meta-row .left  { padding-left:0; }
-.meta-row .right { padding-right:0; text-align:right; }
+.meta-row .left  { padding-left:12%; }
+.meta-row .right { padding-right:12%; text-align:right; }
 
 .h-title { font-size:22px; font-weight:700; text-align:center; margin:8px 0 10px; }
 
