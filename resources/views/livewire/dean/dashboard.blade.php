@@ -1,195 +1,122 @@
 {{-- resources/views/livewire/dean/dashboard.blade.php --}}
 
-{{-- ===================== PRINT & SCREEN STYLES ===================== --}}
 <style>
 /* ===================== PRINT ONLY ===================== */
 @media print {
-  nav, aside, header, footer, .navbar, .sidebar, .print\:hidden {
-    display: none !important;
-    visibility: hidden !important;
-  }
+    nav, aside, header, footer, .navbar, .sidebar, .print\:hidden { display:none !important; visibility:hidden !important; }
+    @page { margin-top:1in; margin-bottom:2in; margin-left:1in; margin-right:1in; }
 
-  @page {
-    margin-top: 1in;
-    margin-bottom: 2in;
-    margin-left: 1in;
-    margin-right: 1in;
-  }
+    html, body {
+        margin:0 !important; padding:0 !important; background:#fff !important;
+        -webkit-print-color-adjust:exact; print-color-adjust:exact;
+        height:auto !important; overflow:visible !important;
+    }
 
-  html, body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #ffffff !important;
-    height: auto !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-    overflow: visible !important;
-  }
+    .container, .max-w-7xl, .mx-auto, .sm\:px-6, .lg\:px-8,
+    .print-root, .page, .p-6, .py-6, .py-8, .py-12, .px-6, .px-8,
+    [class*="shadow"], [class*="ring-"], [class*="border-"] {
+        background:#fff !important; border:none !important; box-shadow:none !important;
+        outline:none !important; margin:0 !important; padding:0 !important;
+    }
 
-  .container, .max-w-7xl, .mx-auto, .sm\:px-6, .lg\:px-8,
-  .print-root, .page, .p-6, .py-6, .py-8, .py-12, .px-6, .px-8,
-  [class*="shadow"], [class*="ring-"], [class*="border-"] {
-    background: #ffffff !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
+    .page { page-break-after:always; display:block; width:100%; margin:0 auto; padding:0; }
+    .page-inner { width:100%; margin:0 auto; padding:0; page-break-inside:avoid; box-sizing:border-box; }
 
-  .page {
-    page-break-after: always;
-    display: block;
-    width: 100%;
-    height: auto !important;
-    margin: 0 auto;
-    padding: 0;
-  }
+    .header-image { width:90%; margin:0 auto 4px; display:flex; justify-content:center; align-items:center; }
+    .header-image img { max-height:70px; height:auto; display:block; margin:0 auto; }
 
-  .page-inner {
-    display: block;
-    width: 100%;
-    height: auto;
-    margin: 0 auto;
-    padding: 0;
-    background: #ffffff !important;
-    box-sizing: border-box;
-    page-break-inside: avoid;
-  }
+    .meta-info { width:90%; margin:4px auto; font-family:ui-monospace, Menlo, Monaco, Consolas, "Courier New", monospace; font-size:13px; }
+    .meta-row { display:flex; justify-content:space-between; margin-bottom:2px; width:100%; }
+    .meta-row .left  { padding-left:26mm; }
+    .meta-row .right { padding-right:26mm; text-align:right; }
 
-  .header-image { margin-bottom: 4px; }
-  .header-image img {
-    max-height: 70px;
-    height: auto;
-    display: block;
-    margin: 0 auto 2px;
-  }
+    .h-title { font-size:22px; font-weight:700; text-align:center; margin:4px 0 8px; }
 
-  .meta-info {
-    width: 90%;
-    margin: 4px 0 4px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
-    font-size: 13px;
-  }
-  .meta-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 2px;
-    width: 100%;
-  }
-  .meta-row .left  { padding-left: 26mm; }
-  .meta-row .right { padding-right: 26mm; text-align: right; }
+    .tbl { width:90% !important; margin:0 auto; border-collapse:collapse !important; table-layout:fixed !important; background:#fff !important; }
+    .tbl th, .tbl td { border:1px solid #1f2937 !important; padding:4px 6px !important; font-size:11px !important; line-height:1.15 !important; height:22px !important; vertical-align:middle !important; }
+    .tbl th { background:#fff !important; font-weight:700; } /* ✅ SAME COLOR as data */
 
-  .h-title {
-    font-size: 22px;
-    font-weight: 700;
-    text-align: center;
-    margin: 4px 0 8px;
-  }
+    .all-term { width:90%; margin:6px auto 4px; font-family:ui-monospace, Menlo, Monaco, Consolas, "Courier New", monospace; font-weight:700; font-size:12px; }
 
-  .table {
-    width: 90% !important;
-    border-collapse: collapse !important;
-    background: #ffffff !important;
-    margin: 0 auto;
-    page-break-inside: avoid;
-  }
-
-  .table th, .table td {
-    border: 1px solid #1f2937 !important;
-    padding: 4px 6px !important;
-    font-size: 11px !important;
-    line-height: 1.15 !important;
-    height: 22px !important;
-    vertical-align: middle !important;
-  }
-  .table th {
-    background: #ffffff !important;
-    text-align: left !important;
-    font-size: 13px !important;
-    height: 24px !important;
-  }
-
-  .print-root, .page, .page-inner, main, #app {
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-
-  .fixed, .sticky, [class*="sticky"], [class*="fixed"] { position: static !important; }
-
-  [class*="h-screen"], [class*="min-h-screen"], [style*="height:100vh"], [style*="min-height:100vh"] {
-    height: auto !important;
-    min-height: 0 !important;
-  }
-
-  * { overflow: visible !important; }
+    .fixed, .sticky, [class*="sticky"], [class*="fixed"] { position:static !important; }
+    * { overflow:visible !important; }
 }
 
 /* ===================== SCREEN STYLES ===================== */
-body { background-color: #fbfaf8 !important; }
+/* ✅ Keep dashboard clean, and mimic editor print look */
+body { background:#f5f6f8; }
 
-.print-root, main, .p-6 {
-  background-color: #fbfaf8 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  padding: 20px;
+.print-root { background:#fbfaf8; padding:18px; box-shadow:0 2px 8px rgba(0,0,0,.04); }
+
+/* ✅ FIX HEADER ARRANGEMENT: always centered */
+.header-image {
+    width:90%;
+    margin:10px auto 6px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
 }
-
-.header-image { text-align: center; margin-bottom: 6px; }
 .header-image img {
-  height: 85px;
-  object-fit: contain;
-  margin: 0 auto;
-  display: inline-block;
+    height:80px;
+    width:auto;
+    object-fit:contain;
+    display:block;
 }
 
-/* Academic Info Layout (Screen) */
+/* meta info box */
 .meta-info {
-  width: 100%;
-  margin: 6px 0 6px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
-  font-size: 14px;
+    width:90%;
+    margin:6px auto;
+    font-family:ui-monospace, Menlo, Monaco, Consolas, "Courier New", monospace;
+    font-size:13px;
 }
-.meta-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 2px;
-}
-.meta-row .left  { padding-left: 2.5in; }
-.meta-row .right { padding-right: 2.5in; text-align: left; }
+.meta-row { display:flex; justify-content:space-between; margin-bottom:2px; width:100%; }
+/* ✅ screen: no big inch padding (mao naguba ug alignment) */
+.meta-row .left  { padding-left:12%; }
+.meta-row .right { padding-right:12%; text-align:right; }
 
-/* Section title */
-.h-title {
-  font-size: 28px;
-  font-weight: 700;
-  text-align: center;
-  margin: 6px 0 10px;
+.h-title { font-size:22px; font-weight:700; text-align:center; margin:8px 0 10px; }
+
+/* ✅ TABLE: fixed widths + SAME COLOR header + body */
+.tbl {
+    width:90%;
+    margin:0 auto;
+    border-collapse:collapse;
+    table-layout:fixed;
+    background:#fff;
+}
+.tbl th, .tbl td {
+    border:1px solid #1f2937;
+    padding:6px 8px;
+    font-size:13px;
+    line-height:1.15;
+    height:34px;
+    vertical-align:middle;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    background:#fff;              /* ✅ SAME COLOR FOR ALL CELLS */
+}
+.tbl th { font-weight:700; background:#fff; } /* ✅ SAME COLOR as data */
+
+/* allow descriptive title wrap */
+.tbl td:nth-child(2) { white-space:normal; line-height:1.25; }
+
+.all-term {
+    width:90%;
+    margin:6px auto 4px;
+    font-family:ui-monospace, Menlo, Monaco, Consolas, "Courier New", monospace;
+    font-weight:700;
+    font-size:12px;
 }
 
-.table {
-  width: 90%;
-  border-collapse: collapse;
-  background-color: #ffffff;
-}
-.table th, .table td {
-  border: 1px solid #1f2937;
-  padding: 6px 8px;
-  font-size: 14px;
-  line-height: 1.25;
-  height: 40px;
-  vertical-align: middle;
-}
-.table th {
-  background: #f3f4f6;
-  text-align: left;
-  height: 48px;
-}
+/* INC highlight */
+.inc { color:#dc2626; font-weight:700; }
 
-.mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-}
+/* spacing between sections */
+.section-block { padding-bottom:24px; }
 
-/* History banner */
+/* History banner (keep, but align with layout) */
 .history-banner {
   border: 1px dashed #6366f1;
   background: #eef2ff;
@@ -197,16 +124,34 @@ body { background-color: #fbfaf8 !important; }
   padding: 10px 12px;
   border-radius: 8px;
 }
+
+/* ===================== DASHBOARD-ONLY CHANGES (SCREEN ONLY) ===================== */
+@media screen {
+    /* ✅ First section only shows header/meta on dashboard */
+    .page.is-not-first .header-image,
+    .page.is-not-first .meta-info {
+        display:none;
+    }
+
+    /* ✅ tighter spacing for non-first sections */
+    .page.is-not-first .h-title {
+        margin-top:4px;
+    }
+
+    .page.is-not-first .page-inner {
+        padding-top:6px;
+    }
+}
 </style>
 
-{{-- ===================== PAGE CONTENT ===================== --}}
 @php
     /** @var bool $showHistory */
     /** @var int|null $academicId */
     /** @var int|null $programCourseId */
+
     $terms = \App\Models\AcademicYear::orderByDesc('id')->get();
     $activeId = \App\Models\AcademicYear::where('is_active', 1)->value('id');
-    $currentTerm = $terms->firstWhere('id', (int)$academicId);
+    $currentTerm = $terms->firstWhere('id', (int)($academicId ?? 0));
 @endphp
 
 <div class="print-root p-6 space-y-6">
@@ -235,7 +180,7 @@ body { background-color: #fbfaf8 !important; }
     </div>
   @endif
 
-  {{-- Filter form --}}
+  {{-- FILTER BAR (screen only) --}}
   <form method="GET" action="{{ url()->current() }}" class="flex flex-wrap items-end gap-3 print:hidden">
       <div class="flex items-center gap-2">
           <input type="checkbox" name="history" value="1" @checked($showHistory ?? false)
@@ -253,8 +198,8 @@ body { background-color: #fbfaf8 !important; }
                                 : (in_array($sem,['2','2nd','second']) ? '2nd Sem'
                                 : (str_contains($sem,'mid') || $sem==='3' ? 'Midyear' : ucwords($a->semester)));
                   @endphp
-                  <option value="{{ $a->id }}" @selected((int)$academicId === (int)$a->id)>
-                      {{ $a->school_year }} — {{ $semLabel }} @if($a->id===$activeId) (Active) @endif
+                  <option value="{{ $a->id }}" @selected((int)($academicId ?? 0) === (int)$a->id)>
+                      {{ $a->school_year }} — {{ $semLabel }} @if((int)$a->id === (int)$activeId) (Active) @endif
                   </option>
               @endforeach
           </select>
@@ -285,88 +230,114 @@ body { background-color: #fbfaf8 !important; }
       </div>
 
       <button class="bg-blue-600 text-white rounded px-4 py-2">Apply</button>
-      <button type="button" onclick="window.print()"
-              class="bg-gray-700 text-white rounded px-4 py-2">Print</button>
+      <button type="button" onclick="window.print()" class="bg-gray-700 text-white rounded px-4 py-2">Print</button>
   </form>
 
-  {{-- ===================== Printable Pages ===================== --}}
+  {{-- ===================== SHEETS ===================== --}}
   @forelse($sheets as $sheet)
       @php
-          $semRaw  = $sheet['semester'] ?? null;
-          $yearRaw = $sheet['year_level'] ?? null;
+          $semRaw  = $sheet['semester'] ?? '';
+          $semLabel = $semRaw ?: '—';
 
-          $semLabel = '—';
-          if ($semRaw !== null && $semRaw !== '') {
-              $s = trim(strtolower((string)$semRaw));
-              if (in_array($s, ['1','1st','first'])) $semLabel = '1st Semester';
-              elseif (in_array($s, ['2','2nd','second'])) $semLabel = '2nd Semester';
-              elseif (in_array($s, ['3','3rd','third','summer','midyear','mid-year']))
-                  $semLabel = (str_contains($s, 'mid')) ? 'Midyear' : 'Summer';
-              else $semLabel = ucwords($semRaw);
-          }
-
-          $yearLabel = '—';
-          if ($yearRaw !== null && $yearRaw !== '') {
-              $y = trim(strtolower((string)$yearRaw));
-              if (in_array($y, ['1','1st','first'])) $yearLabel = 'First';
-              elseif (in_array($y, ['2','2nd','second'])) $yearLabel = 'Second';
-              elseif (in_array($y, ['3','3rd','third'])) $yearLabel = 'Third';
-              elseif (in_array($y, ['4','4th','fourth'])) $yearLabel = 'Fourth';
-              else $yearLabel = ucwords($yearRaw);
-          }
+          $yearRaw = $sheet['year_level'] ?? '';
+          $yearLabel = $yearRaw ?: '—';
       @endphp
 
-      <div class="page">
+      <div class="page section-block {{ $loop->first ? 'is-first' : 'is-not-first' }}">
           <div class="page-inner">
 
+              {{-- HEADER IMAGE --}}
               <div class="header-image">
-                  <img src="{{ asset('images/sfxc_header.png') }}" alt="St. Francis Xavier College Header">
+                  <img src="{{ asset('images/sfxc_header.png') }}" alt="SFXC Header">
               </div>
 
-              {{-- academic info --}}
-              <div class="meta-info">
-                <div class="meta-row">
-                  <div class="left">School Year : <strong>{{ $sheet['school_year'] ?: '—' }}</strong></div>
-                  <div class="right">Semester : <strong>{{ $semLabel }}</strong></div>
-                </div>
-                <div class="meta-row">
-                  <div class="left">Program Name : <strong>{{ $sheet['course'] ?: '—' }}</strong></div>
-                  <div class="right">Year Level : <strong>{{ $yearLabel }}</strong></div>
-                </div>
-              </div>
+              {{-- META INFO --}}
+                <div class="meta-info">
+                    <div class="meta-row">
+                        <div class="left">School Year : <strong>{{ $sheet['school_year'] ?? '—' }}</strong></div>
+                        <div class="right">Semester : <strong>{{ $semLabel }}</strong></div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="left">
+                            Program Name :
+                            <strong>
+                                {{ !empty($programCourseId) ? ($sheet['course'] ?? '—') : 'CBE' }}
+                            </strong>
+                        </div>
 
-              <div class="h-title">{{ $sheet['section'] ?: 'SECTION' }}</div>
+                        <div class="right">
+                            Year Level :
+                            <strong>
+                                <span class="print:hidden">{{ !empty($sectionId) ? $yearLabel : 'ALL' }}</span>
+                                <span class="hidden print:inline">{{ $yearLabel }}</span>
+                            </strong>
+                        </div>
+                    </div>
+                </div>
 
-              <table class="table">
+
+              {{-- SECTION TITLE --}}
+              <div class="h-title">{{ $sheet['section'] ?? 'SECTION' }}</div>
+
+              {{-- HEADER TABLE --}}
+              <table class="tbl">
+                  <colgroup>
+                      <col style="width:110px">
+                      <col style="width:360px">
+                      <col style="width:70px">
+                      <col style="width:120px">
+                      <col style="width:120px">
+                      <col style="width:90px">
+                      <col style="width:90px">
+                      <col style="width:160px">
+                  </colgroup>
                   <thead>
                       <tr>
-                          <th style="width:110px;">Course Code</th>
-                          <th style="width:300px;">Descriptive Title</th>
-                          <th style="width:60px;">Units</th>
-                          <th style="width:100px;">Start Time</th>
-                          <th style="width:100px;">End Time</th>
-                          <th style="width:90px;">Days</th>
-                          <th style="width:100px;">Room</th>
-                          <th style="width:110px;">Instructor</th>
+                          <th>Course Code</th>
+                          <th>Descriptive Title</th>
+                          <th>Units</th>
+                          <th>Start Time</th>
+                          <th>End Time</th>
+                          <th>Days</th>
+                          <th>Room</th>
+                          <th>Instructor</th>
                       </tr>
                   </thead>
+              </table>
+
+              <div class="all-term">ALL Term</div>
+
+              {{-- BODY TABLE --}}
+              <table class="tbl">
+                  <colgroup>
+                      <col style="width:110px">
+                      <col style="width:360px">
+                      <col style="width:70px">
+                      <col style="width:120px">
+                      <col style="width:120px">
+                      <col style="width:90px">
+                      <col style="width:90px">
+                      <col style="width:160px">
+                  </colgroup>
                   <tbody>
                       @forelse($sheet['rows'] as $r)
+                          @php
+                              $inst = (string)($r['inst'] ?? '');
+                              $isInc = strtolower(trim($inst)) === 'inc';
+                          @endphp
                           <tr>
-                              <td class="mono">{{ $r['code'] }}</td>
-                              <td>{{ $r['title'] }}</td>
-                              <td class="mono" style="text-align:center;">{{ $r['units'] }}</td>
-                              <td class="mono">{{ $r['st'] }}</td>
-                              <td class="mono">{{ $r['et'] }}</td>
-                              <td class="mono">{{ $r['days'] }}</td>
-                              <td class="mono">{{ $r['room'] }}</td>
-                              <td class="mono">{{ $r['inst'] }}</td>
+                              <td>{{ $r['code'] ?? '—' }}</td>
+                              <td>{{ $r['title'] ?? '—' }}</td>
+                              <td style="text-align:center;">{{ $r['units'] ?? '—' }}</td>
+                              <td>{{ $r['st'] ?? '—' }}</td>
+                              <td>{{ $r['et'] ?? '—' }}</td>
+                              <td>{{ $r['days'] ?? '—' }}</td>
+                              <td>{{ $r['room'] ?? '—' }}</td>
+                              <td class="{{ $isInc ? 'inc' : '' }}">{{ $r['inst'] ?? '—' }}</td>
                           </tr>
                       @empty
                           <tr>
-                              <td colspan="8" style="text-align:center;color:#6b7280;">
-                                  No meetings found.
-                              </td>
+                              <td colspan="8" style="text-align:center;color:#6b7280;">No meetings found.</td>
                           </tr>
                       @endforelse
                   </tbody>
@@ -374,11 +345,9 @@ body { background-color: #fbfaf8 !important; }
 
           </div>
       </div>
-    @empty
+  @empty
       @php
-          // Build a readable label for the selected academic term, if any
           $academicLabel = null;
-
           if ($currentTerm) {
               $sem = strtolower((string) $currentTerm->semester);
               $semLabel = in_array($sem, ['1', '1st', 'first']) ? '1st Semester'

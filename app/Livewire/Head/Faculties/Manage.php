@@ -7,11 +7,13 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 
 use App\Models\User;
+use App\Models\UsersDepartment;
 use App\Models\UsersEmployment;
 use App\Models\FacultyAvailability;
 use App\Models\TimeSlot;
 
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 #[Title('Manage Faculty')]
@@ -21,6 +23,11 @@ class Manage extends Component
     // keep user id as scalar to avoid Livewire hydration issues
     public int $userId;
     public ?User $user = null;
+
+    /** ✅ Users Department Record (NEW) */
+    public ?string $user_code_id = null;
+    public ?string $position = null;          // Faculty | Head | Dean
+    public ?int $dept_department_id = null;   // locked to Head department (display only)
 
     // Employment (users_employments)
     public $employment_classification = 'Teaching';
@@ -42,6 +49,11 @@ class Manage extends Component
     {
         $this->userId = (int) $user->id;
 
+        // ✅ optional scope (same dept only) — if you want strict head scoping
+        // $head = Auth::user();
+        // abort_unless($head && $head->role === User::ROLE_HEAD, 403);
+        // abort_unless($user->department_id === $head->department_id, 403);
+
         $this->user = User::with(['department','course','userDepartment'])
             ->findOrFail($this->userId);
 
@@ -54,6 +66,22 @@ class Manage extends Component
             $this->dayEnabled[$d] = false;
             $this->dayStart[$d]   = '07:30';
             $this->dayEnd[$d]     = '12:00';
+        }
+
+        /** ✅ Users Department preload (NEW) */
+        $head = Auth::user();
+        $this->dept_department_id = $head?->department_id ?? $this->user->department_id;
+
+        $ud = UsersDepartment::where('user_id', $this->userId)->first();
+        $this->user_code_id = $ud?->user_code_id;
+
+        if ($ud?->position) {
+            $this->position = $ud->position;
+        } else {
+            // fallback based on role
+            if ($this->user->role === User::ROLE_HEAD) $this->position = 'Head';
+            elseif ($this->user->role === User::ROLE_DEAN) $this->position = 'Dean';
+            else $this->position = 'Faculty';
         }
 
         // load employment row directly from UsersEmployment model
@@ -72,6 +100,34 @@ class Manage extends Component
     public function getIsPartTimeProperty(): bool
     {
         return $this->employment_status === 'Part-Time';
+    }
+
+    /** ✅ Save Users Department Record (NEW) */
+    public function saveDepartmentRecord()
+    {
+        $this->validate([
+            'user_code_id' => ['nullable','string','max:255'],
+            'position'     => ['nullable','string', Rule::in(['Faculty','Head','Dean'])],
+        ]);
+
+        $head = Auth::user();
+        $headDeptId = (int) ($head?->department_id ?? $this->user->department_id);
+
+        DB::transaction(function () use ($headDeptId) {
+            $ud = UsersDepartment::firstOrNew(['user_id' => $this->userId]);
+
+            $ud->user_id        = $this->userId;
+            $ud->user_code_id   = $this->user_code_id;
+            $ud->position       = $this->position ?: 'Faculty';
+            $ud->department_id  = $headDeptId; // ✅ locked to Head dept
+            $ud->save();
+        });
+
+        // refresh user display
+        $this->user = User::with(['department','course','userDepartment'])
+            ->findOrFail($this->userId);
+
+        session()->flash('success_department', 'Users Department record updated.');
     }
 
     /** Save Employment (Full-Time will auto-create timeslot + availabilities on SAVE) */
@@ -117,7 +173,6 @@ class Manage extends Component
     public function saveAvailability()
     {
         if (!$this->isPartTime) {
-            // Full-time is auto; no manual saving
             return;
         }
 
@@ -220,7 +275,6 @@ class Manage extends Component
             ['is_active' => true]
         );
 
-        // if you have is_active column, keep it active
         if (isset($slot->is_active) && !$slot->is_active) {
             $slot->is_active = true;
             $slot->save();

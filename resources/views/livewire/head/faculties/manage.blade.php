@@ -35,6 +35,57 @@
                 </div>
             </div>
 
+            {{-- ✅ STEP 0: USERS DEPARTMENT RECORD (NEW) --}}
+            <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div class="mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white text-xs font-semibold">0</span>
+                        <h2 class="text-base font-semibold text-gray-900">Users Department Record</h2>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Department is locked to Head’s department. You can update user code & position.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">User Code ID</label>
+                        <input type="text" wire:model.defer="user_code_id"
+                               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
+                        @error('user_code_id') <div class="mt-1 text-xs text-red-600">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                        <select wire:model.defer="position"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500">
+                            <option value="Faculty">Faculty</option>
+                            <option value="Head">Head</option>
+                            <option value="Dean">Dean</option>
+                        </select>
+                        @error('position') <div class="mt-1 text-xs text-red-600">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Department (locked)</label>
+                        <input type="text" disabled
+                               value="{{ $user->department?->department_name ?? '—' }}"
+                               class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+                    </div>
+                </div>
+
+                <div class="mt-4 flex items-center gap-3">
+                    <button wire:click="saveDepartmentRecord"
+                            class="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-700">
+                        Save Users Department
+                    </button>
+
+                    @if (session('success_department'))
+                        <span class="text-sm text-emerald-700">{{ session('success_department') }}</span>
+                    @endif
+                </div>
+            </div>
+
             {{-- STEP 1: EMPLOYMENT --}}
             <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div class="mb-3">
@@ -130,7 +181,6 @@
                             </p>
                         </div>
 
-                        {{-- OPTIONAL: gamay height + scroll (pwede nimo tangtangon kung ayaw nimo) --}}
                         <div class="max-h-[420px] overflow-y-auto pr-1 space-y-2">
 
                             @foreach ($days as $day)
@@ -158,8 +208,6 @@
                                     <div class="mt-2 grid grid-cols-2 gap-2">
                                         <div>
                                             <label class="block text-[10px] font-medium text-gray-500 mb-1">Start</label>
-
-                                            {{-- keep SELECT (same as imong current) --}}
                                             <select wire:model.defer="dayStart.{{ $day }}"
                                                     @disabled(!($dayEnabled[$day] ?? false))
                                                     class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs focus:ring-1 focus:ring-emerald-500 disabled:bg-gray-100">
@@ -167,7 +215,6 @@
                                                     <option value="{{ $t }}">{{ $t }}</option>
                                                 @endforeach
                                             </select>
-
                                             @error("dayStart.$day")
                                                 <div class="mt-1 text-[10px] text-red-600">{{ $message }}</div>
                                             @enderror
@@ -175,8 +222,6 @@
 
                                         <div>
                                             <label class="block text-[10px] font-medium text-gray-500 mb-1">End</label>
-
-                                            {{-- keep SELECT (same as imong current) --}}
                                             <select wire:model.defer="dayEnd.{{ $day }}"
                                                     @disabled(!($dayEnabled[$day] ?? false))
                                                     class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs focus:ring-1 focus:ring-emerald-500 disabled:bg-gray-100">
@@ -184,7 +229,6 @@
                                                     <option value="{{ $t }}">{{ $t }}</option>
                                                 @endforeach
                                             </select>
-
                                             @error("dayEnd.$day")
                                                 <div class="mt-1 text-[10px] text-red-600">{{ $message }}</div>
                                             @enderror
@@ -208,7 +252,6 @@
                         </div>
                     </div>
                 @endif
-
 
             </div>
         </div>

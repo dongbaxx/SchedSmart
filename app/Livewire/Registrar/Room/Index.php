@@ -25,14 +25,16 @@ class Index extends Component
     }
 
     public function delete($id): void
-{
-    Room::findOrFail($id)->delete();
+    {
+        $room = Room::findOrFail($id);
 
-    session()->flash('success', 'Room deleted successfully.');
+        // instead of deleting, just deactivate
+        $room->update(['is_active' => 0]);
 
-    // Reset pagination safely
-    $this->resetPage();
-}
+        session()->flash('success', 'Room set to Inactive successfully.');
+        $this->resetPage();
+    }
+
 
 
     public function render()

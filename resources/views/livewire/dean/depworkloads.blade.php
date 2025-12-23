@@ -1,6 +1,8 @@
+{{-- resources/views/livewire/dean/depworkloads.blade.php --}}
 
 {{-- ===================== PRINT & SCREEN STYLES ===================== --}}
 <style>
+/* ===================== PRINT ONLY (LOCKED) ===================== */
 @media print {
   nav, aside, header, footer, .navbar, .sidebar, .print\:hidden {
     display:none !important;
@@ -118,55 +120,44 @@
 }
 
 /* ===================== SCREEN STYLES ===================== */
+
+/* i-stretch ang default app container para ani nga page */
+main .max-w-7xl,
+main .mx-auto,
+main .sm\:px-6,
+main .lg\:px-8 {
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* background sa app */
 body { background-color:#fbfaf8!important; }
+main { background-color:#fbfaf8!important; }
 
-.print-root, main, .p-6 {
-  background-color:#fbfaf8!important;
-  box-shadow:0 2px 8px rgba(0,0,0,0.04);
-  padding:20px;
+/* root container – full width */
+.print-root {
+  width:100% !important;
+  max-width:100% !important;
+  margin:0 !important;
+  padding:0 16px 24px 16px !important;
 }
 
-.header-image {
-  text-align:center;
-  margin-bottom:6px;
-}
+/* page wrapper */
+.page { width:100% !important; margin:0 auto !important; }
+.page-inner { width:100% !important; margin:0 auto !important; }
 
-.header-image img {
-  height:85px;
-  object-fit:contain;
-  margin:0 auto;
-  display:inline-block;
-}
-
-.meta-info {
-  width:100%;
-  margin:6px 0 6px;
-  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size:14px;
-}
-
-.meta-row {
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:2px;
-}
-
-.meta-row .left  { padding-left:2.5in; }
-.meta-row .right { padding-right:2.5in; text-align:left; }
-
-.h-title {
-  font-size:28px;
-  font-weight:700;
-  text-align:center;
-  margin:6px 0 10px;
-}
-
+/* TABLE */
 .table {
-  width:90%;
+  width:90% !important;
   border-collapse:collapse;
   background-color:#ffffff;
+  margin:0 !important;
 }
 
+/* table cells */
 .table th, .table td {
   border:1px solid #1f2937;
   padding:6px 10px;
@@ -182,6 +173,7 @@ body { background-color:#fbfaf8!important; }
   font-weight:600;
 }
 
+/* center some numeric-ish columns */
 .table td:nth-child(3),
 .table td:nth-child(4),
 .table td:nth-child(5),
@@ -192,10 +184,43 @@ body { background-color:#fbfaf8!important; }
   text-align:center;
 }
 
+/* header image */
+.header-image { text-align:center; margin-bottom:6px; }
+.header-image img {
+  height:85px;
+  object-fit:contain;
+  margin:0 auto;
+  display:inline-block;
+}
+
+/* meta info */
+.meta-info {
+  width:100%;
+  margin:6px 0 6px;
+  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size:14px;
+}
+
+.meta-row { display:flex; justify-content:space-between; margin-bottom:2px; }
+
+/* bring meta info a bit inward */
+.meta-row .left  { padding-left:2.5in; }
+.meta-row .right { padding-right:2.5in; text-align:left; }
+
+/* title */
+.h-title {
+  font-size:28px;
+  font-weight:700;
+  text-align:center;
+  margin:6px 0 10px;
+}
+
+/* monospace helper */
 .mono {
   font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+/* History banner */
 .history-banner {
   border:1px dashed #6366f1;
   background:#eef2ff;
@@ -203,9 +228,26 @@ body { background-color:#fbfaf8!important; }
   padding:10px 12px;
   border-radius:8px;
 }
+
+/* ===================== DASHBOARD-ONLY BEHAVIOR (SCREEN ONLY) ===================== */
+/* ✅ IMPORTANT: screen-only para walay ma-usab sa print */
+@media screen {
+  /* First sheet ra magpakita header/logo + meta-info sa dashboard */
+  .page.is-not-first .header-image,
+  .page.is-not-first .meta-info {
+    display:none;
+  }
+
+  /* ✅ spacing between blocks */
+  .section-block { margin-bottom:56px; }
+
+  /* ✅ optional extra top gap for next title */
+  .page.is-not-first .h-title { margin-top: 1in !important; }
+}
 </style>
 
 @php
+    // safe defaults (same idea sa take note)
     if (!isset($terms)) {
         $terms = \App\Models\AcademicYear::orderByDesc('id')->get();
     }
@@ -213,12 +255,25 @@ body { background-color:#fbfaf8!important; }
         $activeId = \App\Models\AcademicYear::where('is_active', 1)->value('id');
     }
     if (!isset($currentTerm)) {
-        $currentTerm = $terms->firstWhere('id', (int) $academicId);
+        $currentTerm = $terms->firstWhere('id', (int) ($academicId ?? 0));
     }
+
+    // dashboard instructor label (if faculty selected)
+    $selectedFacultyLabel = null;
+    if (!empty($facultyId ?? null) && !empty($facultyOptions ?? [])) {
+        foreach ($facultyOptions as $opt) {
+            if ((int)($opt['value'] ?? 0) === (int)$facultyId) {
+                $selectedFacultyLabel = $opt['label'] ?? null;
+                break;
+            }
+        }
+    }
+    $dashInstructor = $selectedFacultyLabel ?: (!empty($facultyId ?? null) ? '—' : 'ALL');
 @endphp
 
-<div class="print-root p-6 space-y-6">
+<div class="print-root space-y-6">
 
+  {{-- History banner --}}
   @if(!app('request')->isMethod('post') && ($showHistory ?? false))
     <div class="history-banner print:hidden">
       <div class="flex items-start gap-3">
@@ -266,7 +321,7 @@ body { background-color:#fbfaf8!important; }
                                 : (in_array($sem,['2','2nd','second']) ? '2nd Sem'
                                 : (str_contains($sem,'mid') || $sem === '3' ? 'Midyear' : ucwords($a->semester)));
                   @endphp
-                  <option value="{{ $a->id }}" @selected((int) $academicId === (int) $a->id)>
+                  <option value="{{ $a->id }}" @selected((int) ($academicId ?? 0) === (int) $a->id)>
                       {{ $a->school_year }} — {{ $semLabel }} @if($a->id === $activeId) (Active) @endif
                   </option>
               @endforeach
@@ -321,13 +376,17 @@ body { background-color:#fbfaf8!important; }
               } elseif (in_array($s, ['3','3rd','third','summer','midyear','mid-year'])) {
                   $semLabel = (str_contains($s, 'mid')) ? 'Midyear' : 'Summer';
               } else {
-                  $semLabel = ucwords($semRaw);
+                  $semLabel = ucwords((string)$semRaw);
               }
           }
+
+          $sheetFacultyName = $sheet['faculty'] ?? ($sheet['faculty_short'] ?? null);
+          $printInstructor  = $sheet['faculty_short'] ?? $sheet['faculty'] ?? '—';
       @endphp
 
-      <div class="page">
+      <div class="page {{ $loop->first ? 'is-first' : 'is-not-first' }} section-block">
           <div class="page-inner">
+
               <div class="header-image">
                   <img src="{{ asset('images/sfxc_header.png') }}" alt="St. Francis Xavier College Header">
               </div>
@@ -346,13 +405,24 @@ body { background-color:#fbfaf8!important; }
                 <div class="meta-row">
                   <div class="left">
                       Instructor :
-                      <strong>{{ $sheet['faculty_short'] ?? $sheet['faculty'] ?? '—' }}</strong>
+                      <strong>
+                        {{-- DASHBOARD: show selected faculty name --}}
+                        <span class="print:hidden">{{ $dashInstructor }}</span>
+
+                        {{-- PRINT: keep original per-sheet instructor --}}
+                        <span class="hidden print:inline">{{ $printInstructor }}</span>
+                      </strong>
                   </div>
                   <div class="right"></div>
                 </div>
               </div>
 
-              <div class="h-title">FACULTY LOADS</div>
+              <div class="h-title">
+                <span class="print:hidden">
+                  {{ $sheetFacultyName ?: ($selectedFacultyLabel ?: 'FACULTY') }}
+                </span>
+                <span class="hidden print:inline">FACULTY LOADS</span>
+              </div>
 
               <table class="table">
                   <thead>
@@ -371,15 +441,15 @@ body { background-color:#fbfaf8!important; }
                   <tbody>
                       @forelse($sheet['rows'] as $r)
                           <tr>
-                              <td class="mono">{{ $r['code'] }}</td>
-                              <td>{{ $r['title'] }}</td>
-                              <td class="mono">{{ $r['units'] }}</td>
-                              <td class="mono">{{ $r['section'] }}</td>
-                              <td class="mono">{{ $r['st'] }}</td>
-                              <td class="mono">{{ $r['et'] }}</td>
-                              <td class="mono">{{ $r['days'] }}</td>
-                              <td class="mono">{{ $r['room'] }}</td>
-                              <td class="mono">{{ $r['inst'] }}</td>
+                              <td class="mono">{{ $r['code'] ?? '—' }}</td>
+                              <td>{{ $r['title'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['units'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['section'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['st'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['et'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['days'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['room'] ?? '—' }}</td>
+                              <td class="mono">{{ $r['inst'] ?? '—' }}</td>
                           </tr>
                       @empty
                           <tr>
@@ -395,7 +465,6 @@ body { background-color:#fbfaf8!important; }
       </div>
   @empty
     @php
-        // Build a readable semester label from $currentTerm
         $noSemLabel = '—';
         if (isset($currentTerm) && $currentTerm) {
             $sem = strtolower((string) $currentTerm->semester);
@@ -411,6 +480,6 @@ body { background-color:#fbfaf8!important; }
             ({{ $currentTerm->school_year }} — {{ $noSemLabel }})
         @endif
     </div>
-@endforelse
-</div>
+  @endforelse
 
+</div>
