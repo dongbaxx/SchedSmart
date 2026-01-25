@@ -45,6 +45,13 @@ class Manage extends Component
     public array $gridStartOptions = [];
     public array $gridEndOptions = [];
 
+    public bool $regularLoadTouched = false;
+
+    public int $DEFAULT_LOAD_HEAD_DEAN = 9;
+    public int $DEFAULT_LOAD_FACULTY_FULLTIME = 24;
+    public int $DEFAULT_LOAD_FACULTY_PARTTIME = 12;
+
+
     public function mount(User $user)
     {
         $this->userId = (int) $user->id;
@@ -91,7 +98,16 @@ class Manage extends Component
             $this->employment_status         = (string) $emp->employment_status;
             $this->regular_load              = (int) ($emp->regular_load ?? 0);
             $this->extra_load                = (int) ($emp->extra_load ?? 0);
+
+            $this->regularLoadTouched = true; // ✅ because it already exists (considered user-defined)
+        } else {
+            // ✅ first time auto default (editable)
+            $this->regular_load = $this->defaultRegularLoad();
+            $this->extra_load = 0;
+
+            $this->regularLoadTouched = false;
         }
+
 
         // load availability into UI
         $this->loadExistingAvailability();
@@ -139,7 +155,8 @@ class Manage extends Component
             'regular_load'              => ['nullable','integer','min:0','max:45'],
             'extra_load'                => ['nullable','integer','min:0','max:24'],
         ]);
-
+        $this->regular_load = ($this->regular_load === '' || $this->regular_load === null) ? 0 : (int) $this->regular_load;
+        $this->extra_load   = ($this->extra_load   === '' || $this->extra_load   === null) ? 0 : (int) $this->extra_load;
         DB::transaction(function () {
 
             // ✅ Create/update employment row safely
@@ -193,23 +210,6 @@ class Manage extends Component
                 return;
             }
 
-            // Friday strict ranges
-            if ($day === 'FRI') {
-                $allowed = [
-                    ['13:00','16:00'],
-                    ['14:30','17:30'],
-                    ['16:00','19:00'],
-                    ['17:30','20:30'],
-                ];
-                $ok = false;
-                foreach ($allowed as [$a,$b]) {
-                    if ($start === $a && $end === $b) { $ok = true; break; }
-                }
-                if (!$ok) {
-                    $this->addError("dayEnd.$day", 'Friday must match allowed time ranges.');
-                    return;
-                }
-            }
         }
 
         DB::transaction(function () {
@@ -235,7 +235,7 @@ class Manage extends Component
                 );
             }
         });
-
+        $this->loadExistingAvailability();
         session()->flash('success_availability', 'Availability updated.');
     }
 
@@ -289,6 +289,7 @@ class Manage extends Component
         $rows = FacultyAvailability::with('timeSlot')
             ->where('user_id', $this->userId)
             ->whereIn('day', $this->days)
+            ->orderByDesc('updated_at')
             ->get()
             ->keyBy('day');
 
@@ -302,9 +303,13 @@ class Manage extends Component
 
             $ts = $rows[$day]->timeSlot;
             if ($ts) {
-                $this->dayStart[$day] = substr((string) $ts->start_time, 0, 5);
-                $this->dayEnd[$day]   = substr((string) $ts->end_time, 0, 5);
+                $startRaw = (string) $ts->getRawOriginal('start_time'); // ✅ raw from DB
+                $endRaw   = (string) $ts->getRawOriginal('end_time');   // ✅ raw from DB
+
+                $this->dayStart[$day] = substr($startRaw, 0, 5); // "17:00"
+                $this->dayEnd[$day]   = substr($endRaw, 0, 5);   // "20:00"
             }
+
         }
     }
 
@@ -321,6 +326,39 @@ class Manage extends Component
         }
 
         return $out;
+    }
+
+    private function defaultRegularLoad(): int
+    {
+        // Head & Dean always 9
+        if (in_array($this->user?->role, [User::ROLE_HEAD, User::ROLE_DEAN], true)) {
+            return $this->DEFAULT_LOAD_HEAD_DEAN;
+        }
+
+        // Faculty depends on status
+        return ($this->employment_status === 'Full-Time')
+            ? $this->DEFAULT_LOAD_FACULTY_FULLTIME
+            : $this->DEFAULT_LOAD_FACULTY_PARTTIME;
+    }
+
+    public function updatedRegularLoad()
+    {
+        $this->regularLoadTouched = true;
+    }
+
+    public function updatedEmploymentStatus($value)
+    {
+        $this->employment_status = $value;
+
+        // ✅ ALWAYS auto-change regular_load based on status/role
+        // If Head/Dean must still always be 9, keep this block:
+        if (in_array($this->user?->role, [User::ROLE_HEAD, User::ROLE_DEAN], true)) {
+            $this->regular_load = 9;
+            return;
+        }
+
+        // Faculty: Full-Time = 24, Part-Time = 13
+        $this->regular_load = ($value === 'Full-Time') ? 24 : 12;
     }
 
     public function render()

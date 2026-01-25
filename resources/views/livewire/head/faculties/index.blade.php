@@ -85,7 +85,7 @@
                                 </button>
 
                                 <a href="{{ route('head.faculties.manage', $u->id) }}"
-                                wire:navigate
+                                wire:navigate.relaod
                                 class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-white text-xs hover:bg-emerald-700">
                                 Manage
                                 </a>

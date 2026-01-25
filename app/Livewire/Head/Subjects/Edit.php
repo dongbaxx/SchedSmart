@@ -89,6 +89,12 @@ class Edit extends Component
         // ✅ re-check ownership before update
         abort_unless($this->curriculum->course_id === $this->headCourseId(), 403);
 
+        $data['units'] = $data['units'] === '' ? null : $data['units'];
+        $data['lec']   = $data['lec'] === '' ? null : $data['lec'];
+        $data['lab']   = $data['lab'] === '' ? null : $data['lab'];
+        $data['cmo']   = $data['cmo'] === '' ? null : $data['cmo'];
+        $data['hei']   = $data['hei'] === '' ? null : $data['hei'];
+
         $this->curriculum->update([
             'course_code'       => strtoupper(trim($data['course_code'])),
             'descriptive_title' => trim($data['descriptive_title']),

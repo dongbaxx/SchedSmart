@@ -181,9 +181,7 @@ Route::middleware(['auth','role:Head'])->group(function () {
     Route::get('/history',                                HOhistory::class)->name('offerings.history');
 
     Route::get('/offerings/blk-generate',                 BlkGenerate\Wizards::class)->name('offerings.wizards');
-    Route::get('schedulings/{offering}',                  Editor::class)->name('schedulings.editor');
-    Route::get('schedulings/{offering}/edit',             Edit::class)->name('schedulings.edit');
-
+    Route::get('schedulings/{academic}',                  Editor::class)->name('schedulings.editor');
 
 
 

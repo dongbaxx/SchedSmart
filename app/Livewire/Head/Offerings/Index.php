@@ -7,7 +7,8 @@ use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\Auth;
-use App\Models\{CourseOffering, AcademicYear, Course};
+
+use App\Models\{CourseOffering, AcademicYear};
 
 #[Title('Offerings')]
 #[Layout('layouts.head-shell')]
@@ -16,41 +17,24 @@ class Index extends Component
     use WithPagination;
 
     public ?int $academic_id = null;
-    public ?string $year_level = null;
 
-    public array $levels = ['First Year','Second Year','Third Year','Fourth Year'];
+    // ✅ filter pending
+    public bool $pendingOnly = false;
 
-    // 👂 Listen to Echo broadcast and refresh immediately
+    protected $queryString = [
+        'academic_id' => ['except' => ''],
+        'pendingOnly' => ['except' => false],
+    ];
+
     protected $listeners = [
         'echo:offerings,OfferingStatusChanged' => '$refresh',
-        // if you also emit OfferingCreated elsewhere:
         'echo:offerings,OfferingCreated' => '$refresh',
     ];
 
-    public function delete(int $id): void
+    public function togglePending(): void
     {
-        $offering = CourseOffering::findOrFail($id);
-        if ($offering->status === 'locked') {
-            session()->flash('offerings_warning', 'Locked offerings cannot be deleted.');
-            return;
-        }
-        $offering->delete();
-        session()->flash('offerings_success','Offering deleted.');
+        $this->pendingOnly = !$this->pendingOnly;
         $this->resetPage();
-    }
-
-    private function yearLevelVariants(?string $yl): ?array
-    {
-        if (!$yl) return null;
-        $s = strtolower(trim($yl));
-        return match ($s) {
-            'first year','1','1st','1st year','first'   => ['1','1st','First','1st Year','First Year'],
-            'second year','2','2nd','2nd year','second' => ['2','2nd','Second','2nd Year','Second Year'],
-            'third year','3','3rd','3rd year','third'   => ['3','3rd','Third','3rd Year','Third Year'],
-            'fourth year','4','4th','4th year','fourth' => ['4','4th','Fourth','4th Year','Fourth Year'],
-            'fifth year','5','5th','5th year','fifth'   => ['5','5th','Fifth','5th Year','Fifth Year'],
-            default => [$yl],
-        };
     }
 
     public function render()
@@ -61,7 +45,7 @@ class Index extends Component
         $academics = AcademicYear::orderByDesc('id')->get();
 
         if (!$active) {
-            session()->flash('error','No active term. Please ask Registrar to activate one.');
+            session()->flash('error', 'No active term. Please ask Registrar to activate one.');
             return view('livewire.head.offerings.index', [
                 'rows' => collect(),
                 'academics' => $academics,
@@ -69,16 +53,55 @@ class Index extends Component
         }
 
         $activeId = $this->academic_id ?: $active->id;
-        $ylVariants = $this->yearLevelVariants($this->year_level);
 
-        $rows = CourseOffering::query()
-            // ✅ relation name must match what Blade uses: $r->academic?->...
-            ->with(['academic','course','section'])
+        // ✅ get offerings then group by academic term
+        $offerings = CourseOffering::query()
+            ->with(['academic'])
             ->where('course_id', $user->course_id)
             ->when($activeId, fn($q) => $q->where('academic_id', $activeId))
-            ->when($ylVariants, fn($q) => $q->whereIn('year_level', $ylVariants))
+            ->when($this->pendingOnly, fn($q) => $q->where('status', 'pending'))
             ->orderByDesc('id')
-            ->paginate(10);
+            ->get();
+
+        $rows = $offerings
+            ->groupBy('academic_id')
+            ->map(function ($items) {
+                $a = $items->first()->academic;
+
+                $pending = $items->where('status', 'pending')->count();
+                $locked  = $items->where('status', 'locked')->count();
+
+                return (object)[
+                    'academic_id' => (int)($items->first()->academic_id ?? 0),
+                    'term_label'  => ($a?->school_year ?? '-') . ' — ' . ($a?->semester ?? '-'),
+
+                    // ✅ always display ALL
+                    'year_level_label' => 'ALL',
+                    'section_label'    => 'ALL',
+
+                    // counts
+                    'pending_count' => $pending,
+                    'locked_count'  => $locked,
+                    'total'         => $items->count(),
+
+                    // ✅ can schedule if naay locked sections
+                    'can_schedule'  => $locked > 0,
+                ];
+            })
+            ->values();
+
+        // ✅ paginate grouped rows
+        $perPage = 10;
+        $page = $this->getPage();
+        $paged = $rows->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $rows = new \Illuminate\Pagination\LengthAwarePaginator(
+            $paged,
+            $rows->count(),
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
 
         return view('livewire.head.offerings.index', [
             'rows' => $rows,

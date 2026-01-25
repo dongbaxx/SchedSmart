@@ -274,7 +274,10 @@ class GeneticScheduler
             if ($max <= 0) continue;
 
             $cur = (int)($this->currentLoad[$fid] ?? 0);
-            if ($cur >= $max) continue;
+
+            $units = (int)($this->unitsByCurr[(int)$c->id] ?? (int)($c->units ?? 0));
+            if (($cur + $units) > $max) continue;
+
 
             if ($this->ENFORCE_PT_AVAIL_STRICT && !$this->hasAnyAvailability($fid)) {
                 continue;
@@ -946,25 +949,25 @@ class GeneticScheduler
 
         $q = DB::table('section_meetings as sm')
             ->join('course_offerings as co', 'co.id', '=', 'sm.offering_id')
-            ->whereNotNull('sm.faculty_id');
+            ->whereNotNull('sm.faculty_id')
+            ->whereNotNull('sm.curriculum_id');
 
-        // ✅ current term only
+        // current term only
         if (Schema::hasColumn('course_offerings','academic_id') && isset($this->offering->academic_id)) {
             $q->where('co.academic_id', (int)$this->offering->academic_id);
         }
 
-        $rows = $q->get(['sm.faculty_id','sm.curriculum_id']);
+        // ✅ DISTINCT curriculum per faculty (PAIR won't double count)
+        $pairs = $q->distinct()->get(['sm.faculty_id','sm.curriculum_id']);
 
-        $cids = $rows->pluck('curriculum_id')->unique()->filter()->values()->all();
+        $cids = $pairs->pluck('curriculum_id')->unique()->filter()->values()->all();
+
         $currUnits = [];
         if (!empty($cids)) {
-            $currUnits = Curriculum::whereIn('id', $cids)->get()
-                ->keyBy('id')
-                ->map(fn($c) => (int)($c->units ?? 0))
-                ->all();
+            $currUnits = Curriculum::whereIn('id', $cids)->pluck('units','id')->map(fn($u)=>(int)$u)->all();
         }
 
-        foreach ($rows as $r) {
+        foreach ($pairs as $r) {
             $fid = (int)$r->faculty_id;
             $cid = (int)$r->curriculum_id;
             $loads[$fid] = ($loads[$fid] ?? 0) + (int)($currUnits[$cid] ?? 0);
@@ -972,6 +975,7 @@ class GeneticScheduler
 
         return $loads;
     }
+
 
     private function preloadExistingConflicts(): void
     {
@@ -1037,7 +1041,8 @@ class GeneticScheduler
             $rows2 = DB::table('users')->whereIn('id', $facultyIds)->pluck('max_units','id')->all();
             foreach ($rows2 as $uid => $v) {
                 $uid = (int)$uid;
-                if (!isset($max[$uid]) || (int)$max[$uid] <= 0) $max[$uid] = (int)$v;
+                $max[$uid] = max((int)($max[$uid] ?? 0), (int)$v);
+
             }
         }
 
